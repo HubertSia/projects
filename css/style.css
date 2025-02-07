@@ -1,7 +1,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            background: black;
+            background-image: url(/css/images/cheese-placeholder.jpg);
         }
 
         canvas {
