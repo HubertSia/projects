@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pose Detection with Three.js</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Canvas for Pose and Hand Detection Overlay -->
+    <canvas id="overlayCanvas"></canvas>
+
+    <!-- Container for Three.js Renderer -->
+    <div id="threejs-container"></div>
+
+    <!-- Load TensorFlow.js and other scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script type="module" src="script.js"></script>
+</body>
+
+</html>

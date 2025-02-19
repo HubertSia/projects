@@ -1,0 +1,20 @@
+body {
+    margin: 0;
+    background: black;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+}
+
+video {
+    display: none;
+    /* Hide webcam feed */
+}
+
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
