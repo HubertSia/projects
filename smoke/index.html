@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Smoke Particle System</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Load Three.js FIRST -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Ensure Three.js is loaded before running smoke.js -->
+    <script>
+        console.log("THREE:", window.THREE);
+        if (typeof THREE === "undefined") {
+            console.error("Three.js did NOT load!");
+        } else {
+            console.log("Three.js is loaded successfully!");
+        }
+    </script>
+
+    <!-- Now load your script -->
+    <script src="smoke.js"></script>
+</body>
+
+</html>
