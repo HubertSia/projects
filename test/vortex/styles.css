@@ -1,0 +1,18 @@
+/* Reset margin and padding */
+body,
+html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: black;
+}
+
+/* Make the canvas fill the entire window */
+canvas {
+    display: block;
+}
+
+/* Hide the video element */
+video {
+    display: none;
+}
