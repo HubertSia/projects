@@ -1,6 +1,6 @@
 This is the shared repositiory for Nadia and Hubert's Galaxy Installation
 
-# Aquarium Simulation
+# Title to be added
 Nadia and Hubert
 
 ## [View the project online](URL_TO_THE_PROJECT)

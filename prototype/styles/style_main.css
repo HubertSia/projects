@@ -1,0 +1,28 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+li {
+    margin: 10px 0;
+}
+
+a {
+    text-decoration: none;
+    color: #007BFF;
+}
+
+#webcam-feed {
+    display: none;
+    /* Hide the webcam feed */
+}
+
+#output {
+    margin-top: 20px;
+    font-size: 1.2em;
+}
