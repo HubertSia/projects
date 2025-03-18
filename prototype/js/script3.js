@@ -1,33 +1,13 @@
+/**
+ * Import Three.js library
+ */
 import * as THREE from 'https://unpkg.com/three@0.136.0/build/three.module.js';
-
-// Set TensorFlow.js backend to WebGL
-tf.setBackend('webgl').then(() => {
-    console.log("TensorFlow.js backend set to WebGL");
-});
 
 // Declare variables for the scene, camera, renderer, particles, and video elements
 let scene, camera, renderer, particles, videoTexture, videoCanvas, videoContext, positions;
 
-// Pose and Hand Detection Variables
-let video, overlayCanvas, overlayCtx;
-let poseDetector, handDetector;
-let handResults = [];
-
-// MoveNet Body Keypoints Connections
-const bodyConnections = [
-    [5, 6], [5, 7], [7, 9], [6, 8], [8, 10], // Arms
-    [5, 11], [6, 12], // Shoulders to Hips
-    [11, 12], [11, 13], [13, 15], [12, 14], [14, 16] // Legs
-];
-
-// Hand connections (finger joints)
-const handConnections = [
-    [0, 1], [1, 2], [2, 3], [3, 4], // Thumb
-    [5, 6], [6, 7], [7, 8], // Index
-    [9, 10], [10, 11], [11, 12], // Middle
-    [13, 14], [14, 15], [15, 16], // Ring
-    [17, 18], [18, 19], [19, 20] // Pinky
-];
+// Declare the video variable globally
+let video;
 
 // Initialize the Three.js scene and set up the camera and renderer
 function init() {
@@ -62,25 +42,23 @@ function init() {
     videoCanvas = document.createElement('canvas');
     videoContext = videoCanvas.getContext('2d');
 
-    // Initialize the overlay canvas for pose and hand detection
-    overlayCanvas = document.getElementById('overlayCanvas');
-    overlayCtx = overlayCanvas.getContext('2d');
-    overlayCanvas.width = window.innerWidth;
-    overlayCanvas.height = window.innerHeight;
-
     // Define the number of particles and create a buffer geometry for them
     const particleCount = 10000; // Increased particle count
     const geometry = new THREE.BufferGeometry();
     positions = new Float32Array(particleCount * 3);
     const uvs = new Float32Array(particleCount * 2);
 
-    // Randomly position the particles and assign UV coordinates
+    /**
+     * Randomly position the particles and assign UV coordinates
+     */
     for (let i = 0; i < particleCount; i++) {
-        positions[i * 3] = (Math.random() - 0.5) * 25;
-        positions[i * 3 + 1] = (Math.random() - 0.5) * 25;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 25;
+        const radius = Math.random() * 10; // Random radius for spiral distribution
+        const angle = Math.random() * Math.PI * 2; // Random angle around the Y-axis
+        positions[i * 3] = Math.cos(angle) * radius; // X position
+        positions[i * 3 + 1] = Math.random() * 10 - 5; // Y position (random height)
+        positions[i * 3 + 2] = Math.sin(angle) * radius; // Z position
 
-        uvs[i * 2] = Math.random();
+        uvs[i * 2] = Math.random(); // Random UV coordinates for texture mapping
         uvs[i * 2 + 1] = Math.random();
     }
 
@@ -90,9 +68,9 @@ function init() {
 
     // Create a material for the particles using the video texture
     const material = new THREE.PointsMaterial({
-        size: 0.08,
-        map: videoTexture,
-        transparent: true,
+        size: 0.08, // Size of each particle
+        map: videoTexture, // Use the video as a texture
+        transparent: true, // Allow transparency
     });
 
     // Create the particle system and add it to the scene
@@ -103,100 +81,11 @@ function init() {
     animate();
 }
 
-// Load Models for Pose and Hand Detection
-async function loadModels() {
-    // Load MoveNet for body detection
-    poseDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
-        modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
-    });
-
-    // Load MediaPipe Hands for finger tracking
-    handDetector = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-    handDetector.setOptions({
-        maxNumHands: 2,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-    });
-
-    // Callback to store hand results
-    handDetector.onResults((results) => {
-        handResults = results.multiHandLandmarks || [];
-    });
-
-    console.log("Models Loaded");
-}
-
-// Detect Pose & Hands
-async function detectPose() {
-    if (!poseDetector) return;
-
-    // Detect body keypoints
-    const poses = await poseDetector.estimatePoses(video);
-    // Process hand landmarks separately
-    handDetector.send({ image: video });
-
-    drawSkeleton(poses, handResults);
-    requestAnimationFrame(detectPose);
-}
-
-// Draw Skeleton & Hands
-function drawSkeleton(poses, handResults) {
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-    // 🔹 Draw MoveNet body keypoints
-    if (poses.length > 0) {
-        let keypoints = poses[0].keypoints;
-
-        // Draw body connections
-        overlayCtx.strokeStyle = "cyan";
-        overlayCtx.lineWidth = 3;
-        bodyConnections.forEach(([p1, p2]) => {
-            if (keypoints[p1].score > 0.4 && keypoints[p2].score > 0.4) {
-                overlayCtx.beginPath();
-                overlayCtx.moveTo(keypoints[p1].x, keypoints[p1].y);
-                overlayCtx.lineTo(keypoints[p2].x, keypoints[p2].y);
-                overlayCtx.stroke();
-            }
-        });
-
-        // Draw body keypoints
-        keypoints.forEach(kp => {
-            if (kp.score > 0.4) {
-                overlayCtx.beginPath();
-                overlayCtx.arc(kp.x, kp.y, 5, 0, 2 * Math.PI);
-                overlayCtx.fillStyle = "red";
-                overlayCtx.fill();
-            }
-        });
-    }
-
-    // 🔹 Draw Hand Landmarks
-    handResults.forEach(hand => {
-        overlayCtx.strokeStyle = "blue";
-        overlayCtx.lineWidth = 2;
-
-        // Draw hand connections
-        handConnections.forEach(([p1, p2]) => {
-            overlayCtx.beginPath();
-            overlayCtx.moveTo(hand[p1].x * overlayCanvas.width, hand[p1].y * overlayCanvas.height);
-            overlayCtx.lineTo(hand[p2].x * overlayCanvas.width, hand[p2].y * overlayCanvas.height);
-            overlayCtx.stroke();
-        });
-
-        // Draw hand keypoints
-        hand.forEach(point => {
-            overlayCtx.beginPath();
-            overlayCtx.arc(point.x * overlayCanvas.width, point.y * overlayCanvas.height, 3, 0, 2 * Math.PI);
-            overlayCtx.fillStyle = "green";
-            overlayCtx.fill();
-        });
-    });
-}
-
-// Update the positions of the particles based on the video brightness
-function updateParticles() {
-    if (!videoCanvas || !videoContext) return;
+/**
+ * Update the positions of the particles to create a vortex effect with slower particle movement
+ */
+function updateParticles(time) {
+    if (!videoCanvas || !videoContext || !videoTexture.image || videoTexture.image.videoWidth === 0) return;
 
     // Set the size of the video canvas
     videoCanvas.width = 1920;
@@ -213,44 +102,62 @@ function updateParticles() {
     const imageData = videoContext.getImageData(0, 0, videoCanvas.width, videoCanvas.height);
     const data = imageData.data;
 
-    // Update the Z position of the particles based on the brightness of the video
-    for (let i = 0; i < positions.length / 3; i++) {
-        const x = Math.floor((positions[i * 3] + 5) / 10 * videoCanvas.width);
-        const y = Math.floor((positions[i * 3 + 1] + 5) / 10 * videoCanvas.height);
-        const index = (y * videoCanvas.width + x) * 4;
-        const brightness = (data[index] + data[index + 1] + data[index + 2]) / 3 / 255;
+/**
+ *Update the positions of the particles to create a vortex effect
+ */
+       for (let i = 0; i < positions.length / 3; i++) {
+        const x = positions[i * 3];
+        const y = positions[i * 3 + 1];
+        const z = positions[i * 3 + 2];
 
-        positions[i * 3 + 2] = brightness * 4 - 2;
+        // Calculate the angle and radius for the vortex effect
+        const radius = Math.sqrt(x * x + z * z); // Distance from the center (X-Z plane)
+        const angle = Math.atan2(z, x) + time * 0.0005; // Adjust rotation speed (slower with smaller multiplier)
+
+        // Update the particle positions
+        positions[i * 3] = Math.cos(angle) * radius; // New X position
+        positions[i * 3 + 2] = Math.sin(angle) * radius; // New Z position
+
+        // Add slower random movement to the particles
+        positions[i * 3] += (Math.random() - 0.5) * 0.02; // Slower random X movement
+        positions[i * 3 + 1] += (Math.random() - 0.5) * 0.02; // Slower random Y movement
+        positions[i * 3 + 2] += (Math.random() - 0.5) * 0.02; // Slower random Z movement
+
+        // Update the Y position based on the brightness of the video
+        const brightnessIndex = (Math.floor((y + 5) / 10 * videoCanvas.height) * videoCanvas.width + Math.floor((x + 5) / 10 * videoCanvas.width)) * 4;
+        if (brightnessIndex >= 0 && brightnessIndex + 2 < data.length) {
+            const brightness = (data[brightnessIndex] + data[brightnessIndex + 1] + data[brightnessIndex + 2]) / 3 / 255;
+            positions[i * 3 + 1] = brightness * 10 - 5; // Adjust Y position based on brightness
+        }
     }
 
     // Mark the position attribute as needing an update
     particles.geometry.attributes.position.needsUpdate = true;
 }
 
-// Animate the scene by updating particles and rendering
-function animate() {
+
+/**
+ * Animate the scene by updating particles and rendering 
+ */
+function animate(time) {
     requestAnimationFrame(animate); // Request the next animation frame
-    updateParticles(); // Update particle positions
+    updateParticles(time); // Update particle positions
     renderer.render(scene, camera); // Render the scene
 }
 
-// Handle window resize events
+/**
+ *Handle window resize events 
+ */
 window.addEventListener('resize', () => {
     // Update Three.js renderer and camera
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-
-    // Update overlay canvas size
-    overlayCanvas.width = window.innerWidth;
-    overlayCanvas.height = window.innerHeight;
 });
 
-// Initialize the scene and load models
+// Initialize the scene
 async function main() {
     init();
-    await loadModels();
-    detectPose();
 }
 
 main();
