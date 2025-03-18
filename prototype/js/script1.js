@@ -7,7 +7,9 @@ const ctx = canvas.getContext("2d");
 let particles = [];
 const numParticles = 1200; // Adjusted for better performance on mobile
 
-// Function to resize the canvas dynamically to fit the screen
+/**
+ * Function to resize the canvas dynamically to fit the screen
+ */
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -17,7 +19,10 @@ function resizeCanvas() {
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas(); // Set initial size
 
-// Access the user's webcam and stream the video
+
+/**
+ * Access the user's webcam and stream the video
+ */
 navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
     .then(stream => {
         video.srcObject = stream;
@@ -25,7 +30,9 @@ navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
     })
     .catch(err => console.error("Webcam access denied!", err));
 
-// Function to initialize and create particle objects
+/**
+ * Function to initialize and create particle objects
+ */
 function startParticles() {
     for (let i = 0; i < numParticles; i++) {
         particles.push(new Particle(Math.random() * canvas.width, Math.random() * canvas.height));
@@ -33,7 +40,9 @@ function startParticles() {
     animate(); // Start animation loop
 }
 
-// Particle class to define properties and behaviors of individual particles
+/**
+ * Particle class to define properties and behaviors of individual particles
+ */
 class Particle {
     constructor(x, y) {
         this.x = x; // X position
@@ -43,7 +52,9 @@ class Particle {
         this.size = Math.random() * 5 + 2; // Random size for variation (2px - 7px)
     }
 
-    // Update the particle's position based on brightness from video feed
+    /**
+     * Update the particle's position based on brightness from video feed
+     */
     update(brightness) {
         let speed = brightness / 255 * 2; // Speed is affected by brightness of the video pixel
         this.x += this.vx * speed;
@@ -63,7 +74,9 @@ class Particle {
     }
 }
 
-// Function to animate the particles based on the webcam video feed
+/**
+ * Function to animate the particles based on the webcam video feed
+ */
 function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas for each frame
 
