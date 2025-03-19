@@ -94,7 +94,7 @@ generateGalaxy();
 const clock = new THREE.Clock();
 let userRotation = 0; // User-controlled rotation
 let targetRotation = 0; // Target rotation for smooth interpolation
-const rotationSmoothing = 0.05; // Lower = slower, smoother transitions
+const rotationSmoothing = 0.01; // Lower = slower, smoother transitions
 
 function animate() {
     const elapsedTime = clock.getElapsedTime();
