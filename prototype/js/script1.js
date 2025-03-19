@@ -7,6 +7,76 @@ const ctx = canvas.getContext("2d");
 let particles = [];
 const numParticles = 1200; // Adjusted for better performance on mobile
 
+// Load HandPose model
+let model;
+
+async function loadHandPoseModel() {
+    model = await handpose.load();
+    console.log('HandPose model loaded.');
+}
+
+// Function to check if a palm is open or closed
+function isOpenHand(landmarks) {
+    const thumbTip = landmarks[4]; // Thumb tip
+    const indexTip = landmarks[8]; // Index finger tip
+    const middleTip = landmarks[12]; // Middle finger tip
+    const ringTip = landmarks[16]; // Ring finger tip
+    const pinkyTip = landmarks[20]; // Pinky finger tip
+
+    // Calculate distances from fingertips to the wrist
+    const wrist = landmarks[0]; // Wrist (base of the palm)
+    const thumbDistance = Math.hypot(thumbTip[0] - wrist[0], thumbTip[1] - wrist[1]);
+    const indexDistance = Math.hypot(indexTip[0] - wrist[0], indexTip[1] - wrist[1]);
+    const middleDistance = Math.hypot(middleTip[0] - wrist[0], middleTip[1] - wrist[1]);
+    const ringDistance = Math.hypot(ringTip[0] - wrist[0], ringTip[1] - wrist[1]);
+    const pinkyDistance = Math.hypot(pinkyTip[0] - wrist[0], pinkyTip[1] - wrist[1]);
+
+    // Thresholds for open palm
+    const openThreshold = 100; // Adjust based on testing
+
+    // Check if most fingers are extended (open palm)
+    const extendedFingers = [
+        thumbDistance > openThreshold,
+        indexDistance > openThreshold,
+        middleDistance > openThreshold,
+        ringDistance > openThreshold,
+        pinkyDistance > openThreshold,
+    ].filter(Boolean).length;
+
+    // If at least 3 fingers are extended, consider the palm open
+    return extendedFingers >= 3;
+}
+
+// Function to detect hands and gestures
+async function detectGestures() {
+    if (!model) return;
+
+    // Get hand predictions
+    const predictions = await model.estimateHands(video);
+    if (predictions.length > 0) {
+        // Check if at least one hand has an open palm
+        const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
+
+        if (atLeastOneOpen) {
+            console.log('At Least One Open Palm Detected');
+            // Navigate to a random HTML page after 3 seconds
+            setTimeout(() => {
+                const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
+                const randomPage = pages[Math.floor(Math.random() * pages.length)];
+                window.location.href = randomPage;
+            }, 3000); // 3-second delay
+        } else {
+            console.log('Both Hands Closed: Navigating to index.html');
+            // Navigate to index.html after 10 seconds
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 10000); // 10-second delay
+        }
+    } else {
+        console.log('No Hands Detected');
+    }
+}
+
 /**
  * Function to resize the canvas dynamically to fit the screen
  */
@@ -19,14 +89,19 @@ function resizeCanvas() {
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas(); // Set initial size
 
-
 /**
  * Access the user's webcam and stream the video
  */
 navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
     .then(stream => {
         video.srcObject = stream;
-        video.addEventListener("loadeddata", startParticles); // Start particles once video is loaded
+        video.addEventListener("loadeddata", () => {
+            startParticles(); // Start particles once video is loaded
+            loadHandPoseModel().then(() => {
+                // Start detecting gestures
+                setInterval(detectGestures, 1000); // Check for gestures every second
+            });
+        });
     })
     .catch(err => console.error("Webcam access denied!", err));
 

@@ -9,6 +9,76 @@ let scene, camera, renderer, particles, videoTexture, videoCanvas, videoContext,
 // Declare the video variable globally
 let video;
 
+// Load HandPose model
+let model;
+
+async function loadHandPoseModel() {
+    model = await handpose.load();
+    console.log('HandPose model loaded.');
+}
+
+// Function to check if a palm is open or closed
+function isOpenHand(landmarks) {
+    const thumbTip = landmarks[4]; // Thumb tip
+    const indexTip = landmarks[8]; // Index finger tip
+    const middleTip = landmarks[12]; // Middle finger tip
+    const ringTip = landmarks[16]; // Ring finger tip
+    const pinkyTip = landmarks[20]; // Pinky finger tip
+
+    // Calculate distances from fingertips to the wrist
+    const wrist = landmarks[0]; // Wrist (base of the palm)
+    const thumbDistance = Math.hypot(thumbTip[0] - wrist[0], thumbTip[1] - wrist[1]);
+    const indexDistance = Math.hypot(indexTip[0] - wrist[0], indexTip[1] - wrist[1]);
+    const middleDistance = Math.hypot(middleTip[0] - wrist[0], middleTip[1] - wrist[1]);
+    const ringDistance = Math.hypot(ringTip[0] - wrist[0], ringTip[1] - wrist[1]);
+    const pinkyDistance = Math.hypot(pinkyTip[0] - wrist[0], pinkyTip[1] - wrist[1]);
+
+    // Thresholds for open palm
+    const openThreshold = 100; // Adjust based on testing
+
+    // Check if most fingers are extended (open palm)
+    const extendedFingers = [
+        thumbDistance > openThreshold,
+        indexDistance > openThreshold,
+        middleDistance > openThreshold,
+        ringDistance > openThreshold,
+        pinkyDistance > openThreshold,
+    ].filter(Boolean).length;
+
+    // If at least 3 fingers are extended, consider the palm open
+    return extendedFingers >= 3;
+}
+
+// Function to detect hands and gestures
+async function detectGestures() {
+    if (!model) return;
+
+    // Get hand predictions
+    const predictions = await model.estimateHands(video);
+    if (predictions.length > 0) {
+        // Check if at least one hand has an open palm
+        const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
+
+        if (atLeastOneOpen) {
+            console.log('At Least One Open Palm Detected');
+            // Navigate to a random HTML page after 3 seconds
+            setTimeout(() => {
+                const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
+                const randomPage = pages[Math.floor(Math.random() * pages.length)];
+                window.location.href = randomPage;
+            }, 3000); // 3-second delay
+        } else {
+            console.log('Both Hands Closed: Navigating to index.html');
+            // Navigate to index.html after 10 seconds
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 10000); // 10-second delay
+        }
+    } else {
+        console.log('No Hands Detected');
+    }
+}
+
 // Initialize the Three.js scene and set up the camera and renderer
 function init() {
     // Create a new scene
@@ -33,6 +103,12 @@ function init() {
     navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
         video.srcObject = stream;
         video.play();
+
+        // Load HandPose model after webcam starts
+        loadHandPoseModel().then(() => {
+            // Start detecting gestures
+            setInterval(detectGestures, 1000); // Check for gestures every second
+        });
     });
 
     // Create a texture from the video element
@@ -70,7 +146,7 @@ function init() {
     const material = new THREE.PointsMaterial({
         size: 0.08, // Size of each particle
         map: videoTexture, // Use the video as a texture
-        transparent: true, // Allow transparency
+        transparent: true, // Allow transparency,
     });
 
     // Create the particle system and add it to the scene
@@ -102,10 +178,10 @@ function updateParticles(time) {
     const imageData = videoContext.getImageData(0, 0, videoCanvas.width, videoCanvas.height);
     const data = imageData.data;
 
-/**
- *Update the positions of the particles to create a vortex effect
- */
-       for (let i = 0; i < positions.length / 3; i++) {
+    /**
+     * Update the positions of the particles to create a vortex effect
+     */
+    for (let i = 0; i < positions.length / 3; i++) {
         const x = positions[i * 3];
         const y = positions[i * 3 + 1];
         const z = positions[i * 3 + 2];
@@ -135,7 +211,6 @@ function updateParticles(time) {
     particles.geometry.attributes.position.needsUpdate = true;
 }
 
-
 /**
  * Animate the scene by updating particles and rendering 
  */
@@ -146,7 +221,7 @@ function animate(time) {
 }
 
 /**
- *Handle window resize events 
+ * Handle window resize events 
  */
 window.addEventListener('resize', () => {
     // Update Three.js renderer and camera

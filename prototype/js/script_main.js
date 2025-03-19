@@ -17,24 +17,32 @@ async function detectGestures() {
     // Get hand predictions
     const predictions = await model.estimateHands(video);
     if (predictions.length > 0) {
-        const landmarks = predictions[0].landmarks;
+        // Check if at least one hand has an open palm
+        const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
 
-        // Detect gestures
-        if (isClosedHand(landmarks)) {
-            output.textContent = 'Detected Gesture: Closed Hand';
-            window.location.href = 'particle6.html'; // Navigate to test-smoke
-        } else if (isOpenHand(landmarks)) {
-            output.textContent = 'Detected Gesture: Open Hand';
-            window.location.href = 'particle4.html'; // Navigate to test-psychedelic
-        } else if (isPeaceSign(landmarks)) {
-            output.textContent = 'Detected Gesture: Peace Sign';
-            window.location.href = 'particle3.html'; // Navigate to test-vortex
-        } else if (isThumbsUp(landmarks)) {
-            output.textContent = 'Detected Gesture: Thumbs Up';
-            window.location.href = 'particle1.html'; // Navigate to test-idle
+        if (atLeastOneOpen) {
+            output.textContent = 'At Least One Open Palm Detected';
+            console.log('At Least One Open Palm Detected');
+
+            // Set a timer before navigating
+            setTimeout(() => {
+                // Randomly navigate to one of the pages
+                const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
+                const randomPage = pages[Math.floor(Math.random() * pages.length)];
+                window.location.href = randomPage;
+            }, 6000); // 3-second delay
+
+            // Remove the display content after 2 seconds
+            setTimeout(() => {
+                output.textContent = ''; // Clear the output div
+            }, 4000); // 2-second delay
+        } else {
+            output.textContent = 'No Open Palms Detected';
+            console.log('No Open Palms Detected');
         }
     } else {
-        output.textContent = 'Detected Gesture: None';
+        output.textContent = 'No Hands Detected';
+        console.log('No Hands Detected');
     }
 
     // Repeat detection
@@ -42,39 +50,35 @@ async function detectGestures() {
 }
 
 // Gesture Detection Functions
-function isClosedHand(landmarks) {
-    const thumbTip = landmarks[4]; // Thumb tip
-    const indexTip = landmarks[8]; // Index finger tip
-    const distance = Math.hypot(thumbTip[0] - indexTip[0], thumbTip[1] - indexTip[1]);
-    return distance < 30; // Closed hand if thumb and index finger are close
-}
-
 function isOpenHand(landmarks) {
     const thumbTip = landmarks[4]; // Thumb tip
-    const indexTip = landmarks[8]; // Index finger tip
-    const distance = Math.hypot(thumbTip[0] - indexTip[0], thumbTip[1] - indexTip[1]);
-    return distance > 50; // Open hand if thumb and index finger are far apart
-}
-
-function isPeaceSign(landmarks) {
     const indexTip = landmarks[8]; // Index finger tip
     const middleTip = landmarks[12]; // Middle finger tip
     const ringTip = landmarks[16]; // Ring finger tip
     const pinkyTip = landmarks[20]; // Pinky finger tip
 
-    // Check if index and middle fingers are extended, while ring and pinky are closed
-    const indexMiddleDistance = Math.hypot(indexTip[0] - middleTip[0], indexTip[1] - middleTip[1]);
-    const ringPinkyDistance = Math.hypot(ringTip[0] - pinkyTip[0], ringTip[1] - pinkyTip[1]);
-    return indexMiddleDistance < 30 && ringPinkyDistance < 30;
-}
+    // Calculate distances from fingertips to the wrist
+    const wrist = landmarks[0]; // Wrist (base of the palm)
+    const thumbDistance = Math.hypot(thumbTip[0] - wrist[0], thumbTip[1] - wrist[1]);
+    const indexDistance = Math.hypot(indexTip[0] - wrist[0], indexTip[1] - wrist[1]);
+    const middleDistance = Math.hypot(middleTip[0] - wrist[0], middleTip[1] - wrist[1]);
+    const ringDistance = Math.hypot(ringTip[0] - wrist[0], ringTip[1] - wrist[1]);
+    const pinkyDistance = Math.hypot(pinkyTip[0] - wrist[0], pinkyTip[1] - wrist[1]);
 
-function isThumbsUp(landmarks) {
-    const thumbTip = landmarks[4]; // Thumb tip
-    const indexTip = landmarks[8]; // Index finger tip
-    const thumbIndexDistance = Math.hypot(thumbTip[0] - indexTip[0], thumbTip[1] - indexTip[1]);
+    // Thresholds for open palm
+    const openThreshold = 100; // Adjust based on testing
 
-    // Check if thumb is extended and index finger is closed
-    return thumbIndexDistance > 50;
+    // Check if most fingers are extended (open palm)
+    const extendedFingers = [
+        thumbDistance > openThreshold,
+        indexDistance > openThreshold,
+        middleDistance > openThreshold,
+        ringDistance > openThreshold,
+        pinkyDistance > openThreshold,
+    ].filter(Boolean).length;
+
+    // If at least 3 fingers are extended, consider the palm open
+    return extendedFingers >= 3;
 }
 
 // Access the webcam

@@ -12,6 +12,76 @@ let particles = [];
 // Define the grid size for particles (100 columns and 50 rows)
 const cols = 100, rows = 50;
 
+// Load HandPose model
+let model;
+
+async function loadHandPoseModel() {
+    model = await handpose.load();
+    console.log('HandPose model loaded.');
+}
+
+// Function to check if a palm is open or closed
+function isOpenHand(landmarks) {
+    const thumbTip = landmarks[4]; // Thumb tip
+    const indexTip = landmarks[8]; // Index finger tip
+    const middleTip = landmarks[12]; // Middle finger tip
+    const ringTip = landmarks[16]; // Ring finger tip
+    const pinkyTip = landmarks[20]; // Pinky finger tip
+
+    // Calculate distances from fingertips to the wrist
+    const wrist = landmarks[0]; // Wrist (base of the palm)
+    const thumbDistance = Math.hypot(thumbTip[0] - wrist[0], thumbTip[1] - wrist[1]);
+    const indexDistance = Math.hypot(indexTip[0] - wrist[0], indexTip[1] - wrist[1]);
+    const middleDistance = Math.hypot(middleTip[0] - wrist[0], middleTip[1] - wrist[1]);
+    const ringDistance = Math.hypot(ringTip[0] - wrist[0], ringTip[1] - wrist[1]);
+    const pinkyDistance = Math.hypot(pinkyTip[0] - wrist[0], pinkyTip[1] - wrist[1]);
+
+    // Thresholds for open palm
+    const openThreshold = 100; // Adjust based on testing
+
+    // Check if most fingers are extended (open palm)
+    const extendedFingers = [
+        thumbDistance > openThreshold,
+        indexDistance > openThreshold,
+        middleDistance > openThreshold,
+        ringDistance > openThreshold,
+        pinkyDistance > openThreshold,
+    ].filter(Boolean).length;
+
+    // If at least 3 fingers are extended, consider the palm open
+    return extendedFingers >= 3;
+}
+
+// Function to detect hands and gestures
+async function detectGestures() {
+    if (!model) return;
+
+    // Get hand predictions
+    const predictions = await model.estimateHands(videoStream);
+    if (predictions.length > 0) {
+        // Check if at least one hand has an open palm
+        const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
+
+        if (atLeastOneOpen) {
+            console.log('At Least One Open Palm Detected');
+            // Randomly navigate to one of the pages after 3 seconds
+            setTimeout(() => {
+                const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
+                const randomPage = pages[Math.floor(Math.random() * pages.length)];
+                window.location.href = randomPage;
+            }, 3000);
+        } else {
+            console.log('Both Hands Closed: Waiting 10 Seconds...');
+            // Navigate to index.html after 10 seconds
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 10000);
+        }
+    } else {
+        console.log('No Hands Detected');
+    }
+}
+
 /**
  * Function to resize the canvas to fit the window and regenerate particles 
  */
@@ -21,9 +91,8 @@ function resizeCanvas() {
     createParticles();  // Recreate particles to fit the new canvas size
 }
 
-
 /**
- *Function to initialize the webcam
+ * Function to initialize the webcam
  */
 function initWebcam() {
     // Request access to the user's webcam
@@ -33,13 +102,18 @@ function initWebcam() {
             videoStream = document.createElement("video");
             videoStream.srcObject = stream;  // Set the video source to the webcam stream
             videoStream.play();  // Start playing the video
+
+            // Load HandPose model after webcam starts
+            loadHandPoseModel().then(() => {
+                // Start detecting gestures
+                setInterval(detectGestures, 1000); // Check for gestures every second
+            });
         })
         .catch(err => console.error("Webcam access denied", err));  // Log errors if webcam access is denied
 }
 
-
 /**
- *Particle class to define the behavior and appearance of each particle
+ * Particle class to define the behavior and appearance of each particle
  */
 class Particle {
     constructor(x, y) {
@@ -52,7 +126,7 @@ class Particle {
     }
 
     /**
-     *Update the particle's position based on brightnes 
+     * Update the particle's position based on brightness 
      */    
     update(brightness) {
         // Calculate distortion based on brightness (brighter areas cause more movement)
@@ -64,7 +138,7 @@ class Particle {
     }
 
     /**
-     *Draw the particle on the canvas 
+     * Draw the particle on the canvas 
      */
     draw() {
         ctx.fillStyle = this.color;  // Set particle color
@@ -73,7 +147,6 @@ class Particle {
         ctx.fill();
     }
 }
-
 
 /**
  * Function to create a grid of particles
@@ -91,7 +164,6 @@ function createParticles() {
     }
 }
 
-
 /**
  * Function to calculate the brightness of a pixel at (x, y) in the webcam feed
  */
@@ -101,7 +173,6 @@ function getBrightness(x, y, imageData) {
     // Return the average of the red, green, and blue channels as brightness
     return (imageData.data[index] + imageData.data[index + 1] + imageData.data[index + 2]) / 3;
 }
-
 
 /**
  * Function to process the webcam feed and return pixel data
@@ -129,7 +200,7 @@ function animate() {
     if (frame) {
         // Loop through all particles
         particles.forEach(p => {
-            // Map particle position to the down sampled webcam feed
+            // Map particle position to the downsampled webcam feed
             let x = Math.floor((p.x / canvas.width) * frame.width);
             let y = Math.floor((p.y / canvas.height) * frame.height);
             // Get the brightness of the corresponding pixel
