@@ -7,8 +7,16 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000);
 document.body.appendChild(renderer.domElement);
 
+// Set renderer to full screen
+renderer.domElement.style.position = 'fixed';
+renderer.domElement.style.top = '0';
+renderer.domElement.style.left = '0';
+renderer.domElement.style.width = '100%';
+renderer.domElement.style.height = '100%';
+renderer.domElement.style.zIndex = '1';
+
 // Camera position
-camera.position.z = 1;
+camera.position.z = 1.5; // Adjusted for better view of the full galaxy
 
 // Galaxy parameters
 const parameters = {
@@ -109,11 +117,11 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-// Window resizing
+// Window resizing - Fixed to properly handle window resize
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth / window.innerHeight);
+    renderer.setSize(window.innerWidth, window.innerHeight); // Fixed this line
 });
 
 // Mouse control (fallback)
@@ -152,7 +160,7 @@ window.addEventListener('mousemove', (event) => {
 // Start animation
 animate();
 
-// DOM elements for webcam, output, and status
+// DOM elements for webcam, output, and status - Set higher z-index to appear over galaxy
 const video = document.createElement('video');
 video.id = 'webcam-feed';
 video.width = 320;
@@ -161,6 +169,7 @@ video.style.position = 'absolute';
 video.style.bottom = '10px';
 video.style.right = '10px';
 video.style.opacity = '0.7';
+video.style.zIndex = '10'; // Ensure it appears above the galaxy
 document.body.appendChild(video);
 
 const output = document.createElement('div');
@@ -173,6 +182,7 @@ output.style.fontFamily = 'Arial, sans-serif';
 output.style.padding = '10px';
 output.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
 output.style.borderRadius = '5px';
+output.style.zIndex = '10'; // Ensure it appears above the galaxy
 document.body.appendChild(output);
 
 const statusElement = document.createElement('div');
@@ -185,6 +195,7 @@ statusElement.style.fontFamily = 'Arial, sans-serif';
 statusElement.style.padding = '10px';
 statusElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
 statusElement.style.borderRadius = '5px';
+statusElement.style.zIndex = '10'; // Ensure it appears above the galaxy
 document.body.appendChild(statusElement);
 
 // Variables for gesture control
@@ -282,10 +293,7 @@ async function trackUser() {
                 let currentGesture = 'none';
 
                 // Detect gestures
-                if (isClosedHand(landmarks)) {
-                    currentGesture = 'closed';
-                    output.textContent = 'Hold closed hand to navigate to smoke effect';
-                } else if (isOpenHand(landmarks)) {
+                if (isOpenHand(landmarks)) {
                     currentGesture = 'open';
                     output.textContent = 'Hold open hand to navigate to psychedelic effect';
                 } else {
@@ -309,12 +317,13 @@ async function trackUser() {
                         lastGestureTime = Date.now();
 
                         // Navigate based on confirmed gesture
-                        if (currentGesture === 'closed') {
-                            output.textContent = 'Navigating to smoke effect...';
-                            window.location.href = 'particle6.html';
-                        } else if (currentGesture === 'open') {
-                            output.textContent = 'Navigating to psychedelic effect...';
-                            window.location.href = 'particle4.html';
+                        if (currentGesture === 'open') {
+                            setTimeout(() => {
+                                // Randomly navigate to one of the pages
+                                const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
+                                const randomPage = pages[Math.floor(Math.random() * pages.length)];
+                                window.location.href = randomPage;
+                            }, 6000); // 3-second delay
                         }
                     }
                 } else {
@@ -344,42 +353,36 @@ async function trackUser() {
     requestAnimationFrame(trackUser);
 }
 
-// Gesture Detection Functions with more strict thresholds
-function isClosedHand(landmarks) {
-    // More precise closed hand detection
+// Gesture Detection Functions
+function isOpenHand(landmarks) {
     const thumbTip = landmarks[4]; // Thumb tip
     const indexTip = landmarks[8]; // Index finger tip
     const middleTip = landmarks[12]; // Middle finger tip
     const ringTip = landmarks[16]; // Ring finger tip
-    const pinkyTip = landmarks[20]; // Pinky tip
+    const pinkyTip = landmarks[20]; // Pinky finger tip
 
-    // Measure distances between fingertips and palm
-    const palmBase = landmarks[0]; // Palm base
+    // Calculate distances from fingertips to the wrist
+    const wrist = landmarks[0]; // Wrist (base of the palm)
+    const thumbDistance = Math.hypot(thumbTip[0] - wrist[0], thumbTip[1] - wrist[1]);
+    const indexDistance = Math.hypot(indexTip[0] - wrist[0], indexTip[1] - wrist[1]);
+    const middleDistance = Math.hypot(middleTip[0] - wrist[0], middleTip[1] - wrist[1]);
+    const ringDistance = Math.hypot(ringTip[0] - wrist[0], ringTip[1] - wrist[1]);
+    const pinkyDistance = Math.hypot(pinkyTip[0] - wrist[0], pinkyTip[1] - wrist[1]);
 
-    // Check distances between thumb and index, and ensure other fingers are also closed
-    const thumbIndexDistance = Math.hypot(thumbTip[0] - indexTip[0], thumbTip[1] - indexTip[1]);
-    const indexMiddleDistance = Math.hypot(indexTip[0] - middleTip[0], indexTip[1] - middleTip[1]);
+    // Thresholds for open palm
+    const openThreshold = 100; // Adjust based on testing
 
-    // All fingers should be close together for a proper fist
-    return thumbIndexDistance < 25 && indexMiddleDistance < 25;
-}
+    // Check if most fingers are extended (open palm)
+    const extendedFingers = [
+        thumbDistance > openThreshold,
+        indexDistance > openThreshold,
+        middleDistance > openThreshold,
+        ringDistance > openThreshold,
+        pinkyDistance > openThreshold,
+    ].filter(Boolean).length;
 
-function isOpenHand(landmarks) {
-    // More precise open hand detection
-    const thumbTip = landmarks[4]; // Thumb tip
-    const indexTip = landmarks[8]; // Index finger tip
-    const middleTip = landmarks[12]; // Middle finger tip
-    const wrist = landmarks[0]; // Wrist/palm base
-
-    // Check if fingers are extended from the palm
-    const indexExtended = Math.hypot(indexTip[0] - wrist[0], indexTip[1] - wrist[1]) > 60;
-    const middleExtended = Math.hypot(middleTip[0] - wrist[0], middleTip[1] - wrist[1]) > 60;
-
-    // Fingers should be spread apart
-    const fingerSpread = Math.hypot(indexTip[0] - middleTip[0], indexTip[1] - middleTip[1]) > 30;
-
-    // For open hand, we need extended fingers that are spread apart
-    return indexExtended && middleExtended && fingerSpread;
+    // If at least 3 fingers are extended, consider the palm open
+    return extendedFingers >= 3;
 }
 
 // Access the webcam
@@ -400,3 +403,17 @@ if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     statusElement.textContent = 'Using mouse control (webcam not supported)';
     output.textContent = 'Your browser does not support webcam access. Using mouse controls.';
 }
+
+// Add CSS to ensure galaxy fills the entire screen
+const style = document.createElement('style');
+style.textContent = `
+  body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+  }
+`;
+document.head.appendChild(style);
