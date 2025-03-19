@@ -1,4 +1,6 @@
-// This class represents a single particle that will be used for visual effects.
+/**
+ * This class represents a single particle that will be used for visual effects.  
+ */ 
 class Particle {
     constructor(x, y) {
         // Initialize particle position
@@ -13,13 +15,18 @@ class Particle {
         this.speedY = Math.random() * 2 - 1; // Range: -1 to 1
     }
 
-    // Update particle position based on speed
+    /**
+     *  Update particle position based on speed
+     */
     update() {
         this.x += this.speedX;
         this.y += this.speedY;
     }
 
-    // Render the particle on the canvas
+   
+   /**
+    *  Render the particle on the canvas
+    */
     draw(ctx) {
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -33,7 +40,9 @@ class Particle {
 // Array to store multiple particles
 let particles = [];
 
-// Function to create multiple particles at a given position
+/**
+ * Function to create multiple particles at a given position
+ */
 function createParticles(x, y) {
     // Generate 5 particles per call
     for (let i = 0; i < 5; i++) {
@@ -41,7 +50,9 @@ function createParticles(x, y) {
     }
 }
 
-// Function to update and render particles
+/**
+ * Function to update and render particles
+ */
 function updateParticles(ctx) {
     particles.forEach((particle, index) => {
         // Move the particle
@@ -58,7 +69,9 @@ function updateParticles(ctx) {
     });
 }
 
-// Asynchronously sets up the webcam and returns a video element
+/**
+ * Asynchronously sets up the webcam and returns a video element    
+ */
 async function setupCamera() {
     // Create a video element
     const video = document.createElement('video');
@@ -77,7 +90,9 @@ async function setupCamera() {
     return video;
 }
 
-// Loads the PoseNet model for pose estimation
+/**
+ * Loads the PoseNet model for pose estimation
+ */
 async function loadPoseNet() {
     return await posenet.load({
         // Lightweight model for performance
@@ -101,7 +116,9 @@ async function loadHandPoseModel() {
     console.log('HandPose model loaded.');
 }
 
-// Function to check if a hand is open based on landmarks
+/**
+ * Function to check if a hand is open based on landmarks
+ */
 function isOpenHand(landmarks) {
     const thumbTip = landmarks[4]; // Thumb tip
     const indexTip = landmarks[8]; // Index finger tip
@@ -133,7 +150,9 @@ function isOpenHand(landmarks) {
     return extendedFingers >= 3;
 }
 
-// Function to estimate human pose from the webcam feed and process the data
+/**
+ * Function to estimate human pose from the webcam feed and process the data
+ */
 async function estimatePose(video, net) {
     const canvas = document.createElement('canvas'); // Create a canvas for drawing
     document.body.appendChild(canvas);
@@ -195,7 +214,9 @@ async function estimatePose(video, net) {
     detect();
 }
 
-// Function to draw detected keypoints (joints) on the canvas
+/**
+ * Function to draw detected keypoints (joints) on the canvas
+ */ 
 function drawKeypoints(keypoints, ctx) {
     keypoints.forEach(keypoint => {
         // Only draw keypoints with a confidence score > 0.5
@@ -213,7 +234,9 @@ function drawKeypoints(keypoints, ctx) {
     });
 }
 
-// Function to draw a skeleton by connecting adjacent keypoints
+/**
+ * Function to draw a skeleton by connecting adjacent keypoints
+ */
 function drawSkeleton(keypoints, ctx) {
     const adjacentKeyPoints = posenet.getAdjacentKeyPoints(keypoints, 0.5);
 
@@ -229,7 +252,9 @@ function drawSkeleton(keypoints, ctx) {
     });
 }
 
-// Main function to initialize webcam, load PoseNet, and start pose detection
+/**
+ * Main function to initialize webcam, load PoseNet, and start pose detection
+ */
 async function main() {
     // Initialize webcam
     const video = await setupCamera();

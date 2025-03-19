@@ -60,7 +60,9 @@ function isOpenHand(landmarks) {
     return extendedFingers >= 3;
 }
 
-// Function to detect hands and gestures (unchanged)
+/**
+ * Function to detect hands and gestures (unchanged)
+ */
 async function detectGestures() {
     if (!model) return;
 

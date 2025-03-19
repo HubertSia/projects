@@ -15,7 +15,9 @@ async function loadHandPoseModel() {
     console.log('HandPose model loaded.');
 }
 
-// Function to check if a palm is open or closed
+/**
+ * Function to check if a palm is open or closed
+ */
 function isOpenHand(landmarks) {
     const thumbTip = landmarks[4]; // Thumb tip
     const indexTip = landmarks[8]; // Index finger tip
@@ -47,7 +49,9 @@ function isOpenHand(landmarks) {
     return extendedFingers >= 3;
 }
 
-// Function to detect hands and gestures
+/**
+ * Function to detect hands and gestures
+ */
 async function detectGestures() {
     if (!model) return;
 
@@ -144,7 +148,9 @@ class Particle {
         if (this.y > canvas.height || this.y < 0) this.vy *= -1;
     }
 
-    // Draw the particle on the canvas
+    /**
+     * Draw the particle on the canvas
+     */
     draw() {
         ctx.fillStyle = `rgba(255, 255, 255, 0.9)`; // White particles with slight transparency
         ctx.beginPath();

@@ -17,7 +17,9 @@ async function loadHandPoseModel() {
     console.log('HandPose model loaded.');
 }
 
-// Function to check if a palm is open or closed
+/**
+ * Function to check if a palm is open or closed
+ */
 function isOpenHand(landmarks) {
     const thumbTip = landmarks[4]; // Thumb tip
     const indexTip = landmarks[8]; // Index finger tip
@@ -49,7 +51,9 @@ function isOpenHand(landmarks) {
     return extendedFingers >= 3;
 }
 
-// Function to detect hands and gestures
+/**
+ * Function to detect hands and gestures
+ */
 async function detectGestures() {
     if (!model) return;
 
@@ -79,7 +83,9 @@ async function detectGestures() {
     }
 }
 
-// Initialize the Three.js scene and set up the camera and renderer
+/**
+ * Initialize the Three.js scene and set up the camera and renderer
+ */
 function init() {
     // Create a new scene
     scene = new THREE.Scene();
