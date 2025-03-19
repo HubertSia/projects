@@ -93,12 +93,17 @@ generateGalaxy();
 // Animation
 const clock = new THREE.Clock();
 let userRotation = 0; // User-controlled rotation
+let targetRotation = 0; // Target rotation for smooth interpolation
+const rotationSmoothing = 0.05; // Lower = slower, smoother transitions
 
 function animate() {
     const elapsedTime = clock.getElapsedTime();
 
-    // Base rotation + user controlled rotation
-    points.rotation.y = elapsedTime * 0.02 + userRotation;
+    // Smooth interpolation toward target rotation
+    userRotation += (targetRotation - userRotation) * rotationSmoothing;
+
+    // Base rotation + smoothed user controlled rotation
+    points.rotation.y = elapsedTime * 0.03 + userRotation; // Reduced base rotation speed
 
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
@@ -108,22 +113,38 @@ function animate() {
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(window.innerWidth / window.innerHeight);
 });
 
 // Mouse control (fallback)
 const mousePosition = new THREE.Vector2();
 let usingBodyTracking = false;
 
+// Sensitivity controls
+const settings = {
+    bodyRotationSensitivity: 0.8,  // Reduced from 3 to 0.8 (lower = less sensitive)
+    cameraTiltSensitivity: 0.15,   // Reduced from 0.5 to 0.15
+    mouseRotationSensitivity: 0.5, // Reduced from 2 to 0.5
+    smoothingFactor: 0.1           // Added for position smoothing
+};
+
+// Tracking target camera positions for smooth movement
+let targetCameraX = 0;
+let targetCameraY = 0;
+
 window.addEventListener('mousemove', (event) => {
     if (!usingBodyTracking) {
         mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
         mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-        // Move camera and rotate galaxy based on mouse position
-        camera.position.x = mousePosition.x * 0.5;
-        camera.position.y = mousePosition.y * 0.5;
-        userRotation = mousePosition.x * 2; // Mouse controls rotation
+        // Set target positions with reduced sensitivity
+        targetCameraX = mousePosition.x * settings.cameraTiltSensitivity;
+        targetCameraY = mousePosition.y * settings.cameraTiltSensitivity;
+        targetRotation = mousePosition.x * settings.mouseRotationSensitivity;
+
+        // Smooth camera movement
+        camera.position.x += (targetCameraX - camera.position.x) * settings.smoothingFactor;
+        camera.position.y += (targetCameraY - camera.position.y) * settings.smoothingFactor;
         camera.lookAt(scene.position);
     }
 });
@@ -165,6 +186,19 @@ statusElement.style.padding = '10px';
 statusElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
 statusElement.style.borderRadius = '5px';
 document.body.appendChild(statusElement);
+
+// Variables for gesture control
+let gestureDetectionLocked = false;
+let lastGestureTime = 0;
+const gestureDelay = 2000; // 2 seconds cooldown between navigation events
+let lastGesture = 'none';
+let gestureConfirmCounter = 0;
+const requiredConfirmations = 5; // Need to detect same gesture 5 times in a row
+
+// Simple exponential moving average filter for pose positions
+let prevPoseX = 0;
+let prevPoseY = 0;
+const poseSmoothing = 0.2; // Lower = more smoothing
 
 // Load models
 let handModel, poseModel;
@@ -211,40 +245,96 @@ async function trackUser() {
 
             if (nose && nose.score > 0.3) {
                 // Map nose x position to rotation (center of screen = 0, left = negative, right = positive)
-                const xPos = (nose.x / video.width) * 2 - 1;
-                userRotation = -xPos * 3; // Negative to make movement intuitive (move left, galaxy rotates right)
+                // Apply smoothing filter to position
+                const rawXPos = (nose.x / video.width) * 2 - 1;
+                const rawYPos = (nose.y / video.height) * 2 - 1;
 
-                // Update camera position for tilt effect
-                camera.position.x = xPos * 0.5;
+                // Apply smoothing filter to reduce jitter
+                const xPos = prevPoseX + (rawXPos - prevPoseX) * poseSmoothing;
+                const yPos = prevPoseY + (rawYPos - prevPoseY) * poseSmoothing;
 
-                // Get y position for vertical tilt
-                const yPos = (nose.y / video.height) * 2 - 1;
-                camera.position.y = -yPos * 0.3; // Inverted to make it intuitive
+                // Save for next frame
+                prevPoseX = xPos;
+                prevPoseY = yPos;
 
+                // Set target rotation with reduced sensitivity
+                targetRotation = -xPos * settings.bodyRotationSensitivity;
+
+                // Update camera position targets with reduced sensitivity
+                targetCameraX = xPos * settings.cameraTiltSensitivity;
+                targetCameraY = -yPos * settings.cameraTiltSensitivity;
+
+                // Smooth camera movement with interpolation
+                camera.position.x += (targetCameraX - camera.position.x) * settings.smoothingFactor;
+                camera.position.y += (targetCameraY - camera.position.y) * settings.smoothingFactor;
                 camera.lookAt(scene.position);
 
                 statusElement.textContent = 'Body tracking active - Move left/right to rotate galaxy';
             }
         }
 
-        // Track hand gestures for navigation
-        const handPredictions = await handModel.estimateHands(video);
+        // Track hand gestures for navigation - with reduced frequency to prevent false triggers
+        if (!gestureDetectionLocked) {
+            const handPredictions = await handModel.estimateHands(video);
 
-        if (handPredictions.length > 0) {
-            const landmarks = handPredictions[0].landmarks;
+            if (handPredictions.length > 0) {
+                const landmarks = handPredictions[0].landmarks;
+                let currentGesture = 'none';
 
-            // Detect gestures for navigation
-            if (isClosedHand(landmarks)) {
-                output.textContent = 'Detected Gesture: Closed Hand';
-                window.location.href = 'particle6.html'; // Navigate to test-smoke
-            } else if (isOpenHand(landmarks)) {
-                output.textContent = 'Detected Gesture: Open Hand';
-                window.location.href = 'particle4.html'; // Navigate to test-psychedelic
+                // Detect gestures
+                if (isClosedHand(landmarks)) {
+                    currentGesture = 'closed';
+                    output.textContent = 'Hold closed hand to navigate to smoke effect';
+                } else if (isOpenHand(landmarks)) {
+                    currentGesture = 'open';
+                    output.textContent = 'Hold open hand to navigate to psychedelic effect';
+                } else {
+                    currentGesture = 'none';
+                    output.textContent = 'Move body to rotate galaxy | Open/close hand to navigate';
+                    gestureConfirmCounter = 0;
+                }
+
+                // Gesture confirmation logic - must detect same gesture multiple times in a row
+                if (currentGesture !== 'none' && currentGesture === lastGesture) {
+                    gestureConfirmCounter++;
+
+                    // Visual feedback on gesture recognition progress
+                    if (gestureConfirmCounter > 0) {
+                        output.textContent += ` (${gestureConfirmCounter}/${requiredConfirmations})`;
+                    }
+
+                    // Only navigate after confirmed gesture with enough consistency
+                    if (gestureConfirmCounter >= requiredConfirmations) {
+                        gestureDetectionLocked = true;
+                        lastGestureTime = Date.now();
+
+                        // Navigate based on confirmed gesture
+                        if (currentGesture === 'closed') {
+                            output.textContent = 'Navigating to smoke effect...';
+                            window.location.href = 'particle6.html';
+                        } else if (currentGesture === 'open') {
+                            output.textContent = 'Navigating to psychedelic effect...';
+                            window.location.href = 'particle4.html';
+                        }
+                    }
+                } else {
+                    // Reset counter if gesture changed
+                    if (currentGesture !== lastGesture) {
+                        gestureConfirmCounter = 0;
+                    }
+                }
+
+                lastGesture = currentGesture;
             } else {
-                output.textContent = 'Hand detected - use open/closed hand to navigate';
+                output.textContent = 'Move body to rotate galaxy | Open/close hand to navigate';
+                gestureConfirmCounter = 0;
             }
         } else {
-            output.textContent = 'Move body to rotate galaxy';
+            // Check if we should unlock gesture detection
+            const currentTime = Date.now();
+            if (currentTime - lastGestureTime > gestureDelay) {
+                gestureDetectionLocked = false;
+            }
         }
     } catch (error) {
         console.error('Tracking error:', error);
@@ -254,19 +344,42 @@ async function trackUser() {
     requestAnimationFrame(trackUser);
 }
 
-// Gesture Detection Functions
+// Gesture Detection Functions with more strict thresholds
 function isClosedHand(landmarks) {
+    // More precise closed hand detection
     const thumbTip = landmarks[4]; // Thumb tip
     const indexTip = landmarks[8]; // Index finger tip
-    const distance = Math.hypot(thumbTip[0] - indexTip[0], thumbTip[1] - indexTip[1]);
-    return distance < 30; // Closed hand if thumb and index finger are close
+    const middleTip = landmarks[12]; // Middle finger tip
+    const ringTip = landmarks[16]; // Ring finger tip
+    const pinkyTip = landmarks[20]; // Pinky tip
+
+    // Measure distances between fingertips and palm
+    const palmBase = landmarks[0]; // Palm base
+
+    // Check distances between thumb and index, and ensure other fingers are also closed
+    const thumbIndexDistance = Math.hypot(thumbTip[0] - indexTip[0], thumbTip[1] - indexTip[1]);
+    const indexMiddleDistance = Math.hypot(indexTip[0] - middleTip[0], indexTip[1] - middleTip[1]);
+
+    // All fingers should be close together for a proper fist
+    return thumbIndexDistance < 25 && indexMiddleDistance < 25;
 }
 
 function isOpenHand(landmarks) {
+    // More precise open hand detection
     const thumbTip = landmarks[4]; // Thumb tip
     const indexTip = landmarks[8]; // Index finger tip
-    const distance = Math.hypot(thumbTip[0] - indexTip[0], thumbTip[1] - indexTip[1]);
-    return distance > 50; // Open hand if thumb and index finger are far apart
+    const middleTip = landmarks[12]; // Middle finger tip
+    const wrist = landmarks[0]; // Wrist/palm base
+
+    // Check if fingers are extended from the palm
+    const indexExtended = Math.hypot(indexTip[0] - wrist[0], indexTip[1] - wrist[1]) > 60;
+    const middleExtended = Math.hypot(middleTip[0] - wrist[0], middleTip[1] - wrist[1]) > 60;
+
+    // Fingers should be spread apart
+    const fingerSpread = Math.hypot(indexTip[0] - middleTip[0], indexTip[1] - middleTip[1]) > 30;
+
+    // For open hand, we need extended fingers that are spread apart
+    return indexExtended && middleExtended && fingerSpread;
 }
 
 // Access the webcam
