@@ -93,7 +93,7 @@ async function detectGestures() {
                 const randomPage = pages[Math.floor(Math.random() * pages.length)];
                 window.location.href = randomPage;
             }, 3000);
-        } else if (atLeastOneClosed){
+        } else if (atLeastOneClosed) {
             setTimeout(() => {
                 window.location.href = 'index.html';
             }, 3000);
@@ -103,7 +103,7 @@ async function detectGestures() {
             // Navigate to index.html after 10 seconds
             setTimeout(() => {
                 window.location.href = 'prototype/index.html';
-            }, 100000);
+            }, 10000);
         }
     }
 }
@@ -131,8 +131,12 @@ function initWebcam() {
 
             // Load HandPose model after webcam starts
             loadHandPoseModel().then(() => {
-                // Start detecting gestures
-                setInterval(detectGestures, 1000); // Check for gestures every second
+                // Add a 1-minute delay before starting gesture detection
+               /** setTimeout(() => {
+                    console.log("Hand detection is now active!"); */
+                    // Start detecting gestures every second after the delay
+                    setInterval(detectGestures, 1000);
+               // }, 60000); // 60,000 milliseconds = 1 minute
             });
         })
         .catch(err => console.error("Webcam access denied", err));  // Log errors if webcam access is denied

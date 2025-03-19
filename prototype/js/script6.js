@@ -159,31 +159,34 @@ async function estimatePose(video, net) {
         // Update and render particles
         updateParticles(ctx);
 
-        // Hand gesture detection
+// Hand gesture detection
         if (handposeModel) {
-            const predictions = await handposeModel.estimateHands(video);
-            if (predictions.length > 0) {
-                // Check if at least one hand has an open palm
-                const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
+           /** setTimeout(async () => {
+                console.log("Hand detection is now active!"); */
+                const predictions = await handposeModel.estimateHands(video);
+                if (predictions.length > 0) {
+                    // Check if at least one hand has an open palm
+                    const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
 
-                if (atLeastOneOpen) {
-                    console.log('At Least One Open Palm Detected');
-                    // Navigate to a random HTML page after 3 seconds
-                    setTimeout(() => {
-                        const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
-                        const randomPage = pages[Math.floor(Math.random() * pages.length)];
-                        window.location.href = randomPage;
-                    }, 3000); // 3-second delay
+                    if (atLeastOneOpen) {
+                        console.log('At Least One Open Palm Detected');
+                        // Navigate to a random HTML page after 3 seconds
+                        setTimeout(() => {
+                            const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
+                            const randomPage = pages[Math.floor(Math.random() * pages.length)];
+                            window.location.href = randomPage;
+                        }, 3000); // 3-second delay
+                    } else {
+                        console.log('Both Hands Closed: Navigating to index.html');
+                        // Navigate to index.html after 10 seconds
+                        setTimeout(() => {
+                            window.location.href = 'index.html';
+                        }, 10000); // 10-second delay
+                    }
                 } else {
-                    console.log('Both Hands Closed: Navigating to index.html');
-                    // Navigate to index.html after 10 seconds
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 10000); // 10-second delay
+                    console.log('No Hands Detected');
                 }
-            } else {
-                console.log('No Hands Detected');
-            }
+            //}, 60000); // 60,000 milliseconds = 1 minute
         }
 
         // Continuously detect poses
