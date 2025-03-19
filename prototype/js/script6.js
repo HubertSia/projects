@@ -141,6 +141,9 @@ async function estimatePose(video, net) {
     canvas.height = video.height;
     const ctx = canvas.getContext('2d');
 
+    // Flag to prevent multiple navigations
+    let isNavigating = false;
+
     async function detect() {
         // Estimate the human pose from the video frame
         const pose = await net.estimateSinglePose(video, { flipHorizontal: false });
@@ -160,7 +163,7 @@ async function estimatePose(video, net) {
         updateParticles(ctx);
 
         // Hand gesture detection
-        if (handposeModel) {
+        if (handposeModel && !isNavigating) {
             const predictions = await handposeModel.estimateHands(video);
             if (predictions.length > 0) {
                 // Check if at least one hand has an open palm
@@ -168,6 +171,13 @@ async function estimatePose(video, net) {
 
                 if (atLeastOneOpen) {
                     console.log('At Least One Open Palm Detected');
+                    isNavigating = true; // Prevent multiple navigations
+
+                    // Visual feedback
+                    ctx.fillStyle = 'white';
+                    ctx.font = '24px Arial';
+                    ctx.fillText('Navigating in 3 seconds...', 10, 50);
+
                     // Navigate to a random HTML page after 3 seconds
                     setTimeout(() => {
                         const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
@@ -176,6 +186,13 @@ async function estimatePose(video, net) {
                     }, 3000); // 3-second delay
                 } else {
                     console.log('Both Hands Closed: Navigating to index.html');
+                    isNavigating = true; // Prevent multiple navigations
+
+                    // Visual feedback
+                    ctx.fillStyle = 'white';
+                    ctx.font = '24px Arial';
+                    ctx.fillText('Navigating to index.html in 10 seconds...', 10, 50);
+
                     // Navigate to index.html after 10 seconds
                     setTimeout(() => {
                         window.location.href = 'index.html';
