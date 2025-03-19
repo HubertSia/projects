@@ -106,8 +106,12 @@ function init() {
 
         // Load HandPose model after webcam starts
         loadHandPoseModel().then(() => {
-            // Start detecting gestures
-            setInterval(detectGestures, 1000); // Check for gestures every second
+            // Add a 1-minute delay before starting gesture detection
+           // setTimeout(() => {
+               // console.log("Hand detection is now active!");
+                // Start detecting gestures every second after the delay
+                setInterval(detectGestures, 1000); // Check for gestures every second
+            //}, 60000); // 60,000 milliseconds = 1 minute
         });
     });
 
