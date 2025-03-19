@@ -16,8 +16,12 @@ const cols = 50, rows = 20; // Increased density
 let model;
 
 async function loadHandPoseModel() {
-    model = await handpose.load();
-    console.log('HandPose model loaded.');
+    try {
+        model = await handpose.load();
+        console.log('HandPose model loaded.');
+    } catch (error) {
+        console.error('Failed to load HandPose model:', error);
+    }
 }
 
 // Function to check if a palm is open or closed
@@ -56,29 +60,33 @@ function isOpenHand(landmarks) {
 async function detectGestures() {
     if (!model) return;
 
-    // Get hand predictions
-    const predictions = await model.estimateHands(videoStream);
-    if (predictions.length > 0) {
-        // Check if at least one hand has an open palm
-        const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
+    try {
+        // Get hand predictions
+        const predictions = await model.estimateHands(videoStream);
+        if (predictions.length > 0) {
+            // Check if at least one hand has an open palm
+            const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
 
-        if (atLeastOneOpen) {
-            console.log('At Least One Open Palm Detected');
-            // Randomly navigate to one of the pages after 3 seconds
-            setTimeout(() => {
-                const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
-                const randomPage = pages[Math.floor(Math.random() * pages.length)];
-                window.location.href = randomPage;
-            }, 3000);
+            if (atLeastOneOpen) {
+                console.log('At Least One Open Palm Detected');
+                // Randomly navigate to one of the pages after 3 seconds
+                setTimeout(() => {
+                    const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
+                    const randomPage = pages[Math.floor(Math.random() * pages.length)];
+                    window.location.href = randomPage;
+                }, 3000);
+            } else {
+                console.log('Both Hands Closed: Waiting 10 Seconds...');
+                // Navigate to index.html after 10 seconds
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 10000);
+            }
         } else {
-            console.log('Both Hands Closed: Waiting 10 Seconds...');
-            // Navigate to index.html after 10 seconds
-            setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 10000);
+            console.log('No Hands Detected');
         }
-    } else {
-        console.log('No Hands Detected');
+    } catch (error) {
+        console.error('Error detecting gestures:', error);
     }
 }
 
@@ -102,6 +110,9 @@ function initWebcam() {
             videoStream = document.createElement("video");
             videoStream.srcObject = stream;  // Set the video source to the webcam stream
             videoStream.play();  // Start playing the video
+
+            // Append video stream to DOM for debugging (optional)
+            document.body.appendChild(videoStream);
 
             // Load HandPose model after webcam starts
             loadHandPoseModel().then(() => {
@@ -162,6 +173,10 @@ class Particle {
         this.x = this.baseX + waveX + distortion * (1 + this.z * 0.1);
         this.y = this.baseY + waveY - distortion * (1 + this.z * 0.05);
 
+        // Ensure x and y are finite numbers
+        if (!isFinite(this.x)) this.x = this.baseX;
+        if (!isFinite(this.y)) this.y = this.baseY;
+
         // Pulsating size and opacity for glow effect
         const pulseFactor = (Math.sin(timeNow * 2) + 1) * 0.15;
         this.opacity = this.baseOpacity * (0.85 + pulseFactor);
@@ -174,6 +189,12 @@ class Particle {
      * Draw the particle with glow effect
      */
     draw() {
+        // Ensure size is a finite number
+        if (!isFinite(this.size)) {
+            console.warn('Invalid particle size:', this.size);
+            return; // Skip drawing this particle
+        }
+
         // Create glow effect
         ctx.save();
         ctx.globalAlpha = this.opacity * 0.5;
@@ -255,8 +276,10 @@ function createParticles() {
 function getBrightness(x, y, imageData) {
     // Calculate the index of the pixel in the image data array
     let index = (y * imageData.width + x) * 4;
-    // Return the average of the red, green, and blue channels as brightness
-    return (imageData.data[index] + imageData.data[index + 1] + imageData.data[index + 2]) / 3;
+    let r = imageData.data[index];
+    let g = imageData.data[index + 1];
+    let b = imageData.data[index + 2];
+    return (0.299 * r + 0.587 * g + 0.114 * b); // Luminance formula
 }
 
 /**
@@ -293,8 +316,17 @@ function animate() {
             // Map particle position to the downsampled webcam feed
             let x = Math.floor((p.x / canvas.width) * frame.width);
             let y = Math.floor((p.y / canvas.height) * frame.height);
+
+            // Ensure x and y are within bounds
+            x = Math.max(0, Math.min(frame.width - 1, x));
+            y = Math.max(0, Math.min(frame.height - 1, y));
+
             // Get the brightness of the corresponding pixel
             let brightness = getBrightness(x, y, frame);
+
+            // Ensure brightness is a valid number
+            if (!isFinite(brightness)) brightness = 128; // Default to medium brightness
+
             p.update(brightness);  // Update particle position based on brightness
             p.draw();  // Draw the particle
         });
@@ -313,8 +345,12 @@ function animate() {
 document.body.style.backgroundColor = "#0a0a14";
 canvas.style.background = "linear-gradient(to bottom, #0a0a14, #121236)";
 
-// Add event listener to resize the canvas when the window is resized
-window.addEventListener("resize", resizeCanvas);
+// Debounce resize event to avoid frequent particle regeneration
+let resizeTimeout;
+window.addEventListener("resize", () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(resizeCanvas, 100);
+});
 
 // Initialize the canvas, webcam, and start the animation loop
 resizeCanvas();
