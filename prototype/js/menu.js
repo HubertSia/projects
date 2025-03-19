@@ -122,8 +122,8 @@ let usingBodyTracking = false;
 
 // Sensitivity controls
 const settings = {
-    bodyRotationSensitivity: 0.8,  // Reduced from 3 to 0.8 (lower = less sensitive)
-    cameraTiltSensitivity: 0.15,   // Reduced from 0.5 to 0.15
+    bodyRotationSensitivity: 0.5,  // Reduced from 3 to 0.8 (lower = less sensitive)
+    cameraTiltSensitivity: 0.5,   // Reduced from 0.5 to 0.15
     mouseRotationSensitivity: 0.5, // Reduced from 2 to 0.5
     smoothingFactor: 0.1           // Added for position smoothing
 };
