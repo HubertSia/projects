@@ -26,3 +26,15 @@ a {
     margin-top: 20px;
     font-size: 1.2em;
 }
+
+#page-title{    
+font-family: 'Courier New',monospace;
+font-weight: 300;
+letter-spacing: 0.1em;
+text-transform: uppercase;
+text-align: center;
+z-index: 10;
+text-shadow: 0 0 10px rgba(0, 17, 255, 0.7);
+    
+}
+ 
