@@ -95,13 +95,13 @@ async function loadPoseNet() {
 }
 
 // Loads the HandPose model for hand gesture detection
-let handposeModel;
+let model;
 async function loadHandPoseModel() {
-    handposeModel = await handpose.load();
+    model = await handpose.load();
     console.log('HandPose model loaded.');
 }
 
-// Function to check if a hand is open based on landmarks
+// Function to check if a palm is open or closed
 function isOpenHand(landmarks) {
     const thumbTip = landmarks[4]; // Thumb tip
     const indexTip = landmarks[8]; // Index finger tip
@@ -133,6 +133,29 @@ function isOpenHand(landmarks) {
     return extendedFingers >= 3;
 }
 
+function isClosedHand(landmarks) {
+    // More precise closed hand detection
+    const thumbTip = landmarks[4]; // Thumb tip
+    const indexTip = landmarks[8]; // Index finger tip
+    const middleTip = landmarks[12]; // Middle finger tip
+    const ringTip = landmarks[16]; // Ring finger tip
+    const pinkyTip = landmarks[20]; // Pinky tip
+
+    // Measure distances between fingertips and palm
+    const palmBase = landmarks[0]; // Palm base
+
+    // Check distances between thumb and index, and ensure other fingers are also closed
+    const thumbIndexDistance = Math.hypot(thumbTip[0] - indexTip[0], thumbTip[1] - indexTip[1]);
+    const indexMiddleDistance = Math.hypot(indexTip[0] - middleTip[0], indexTip[1] - middleTip[1]);
+    const middleRingDistance = Math.hypot(middleTip[0] - ringTip[0], middleTip[1] - ringTip[1]);
+    const ringPinkyDistance = Math.hypot(ringTip[0] - pinkyTip[0], ringTip[1] - pinkyTip[1]);
+
+    // All fingers should be close together for a proper fist
+    return (thumbIndexDistance < 30 && indexMiddleDistance < 30 && middleRingDistance < 30 && ringPinkyDistance < 30);
+}
+
+
+
 // Function to estimate human pose from the webcam feed and process the data
 async function estimatePose(video, net) {
     const canvas = document.createElement('canvas'); // Create a canvas for drawing
@@ -163,45 +186,36 @@ async function estimatePose(video, net) {
         updateParticles(ctx);
 
         // Hand gesture detection
-        if (handposeModel && !isNavigating) {
-            const predictions = await handposeModel.estimateHands(video);
-            if (predictions.length > 0) {
-                // Check if at least one hand has an open palm
-                const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
+        if (!model) return;
 
-                if (atLeastOneOpen) {
-                    console.log('At Least One Open Palm Detected');
-                    isNavigating = true; // Prevent multiple navigations
+    // Get hand predictions
+    const predictions = await model.estimateHands(videoStream);
+    if (predictions.length > 0) {
+        // Check if at least one hand has an open palm
+        const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
+        const atLeastOneClosed = predictions.some(prediction => isClosedHand(prediction.landmarks));
 
-                    // Visual feedback
-                    ctx.fillStyle = 'white';
-                    ctx.font = '24px Arial';
-                    ctx.fillText('Navigating in 3 seconds...', 10, 50);
-
-                    // Navigate to a random HTML page after 3 seconds
-                    setTimeout(() => {
-                        const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
-                        const randomPage = pages[Math.floor(Math.random() * pages.length)];
-                        window.location.href = randomPage;
-                    }, 3000); // 3-second delay
-                } else {
-                    console.log('Both Hands Closed: Navigating to index.html');
-                    isNavigating = true; // Prevent multiple navigations
-
-                    // Visual feedback
-                    ctx.fillStyle = 'white';
-                    ctx.font = '24px Arial';
-                    ctx.fillText('Navigating to index.html in 10 seconds...', 10, 50);
-
-                    // Navigate to index.html after 10 seconds
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 10000); // 10-second delay
-                }
-            } else {
-                console.log('No Hands Detected');
-            }
+        if (atLeastOneOpen) {
+            console.log('At Least One Open Palm Detected');
+            // Randomly navigate to one of the pages after 3 seconds
+            setTimeout(() => {
+                const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
+                const randomPage = pages[Math.floor(Math.random() * pages.length)];
+                window.location.href = randomPage;
+            }, 3000);
+        } else if (atLeastOneClosed){
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 3000);
         }
+        else {
+            console.log('Both Hands Closed: Waiting 10 Seconds...');
+            // Navigate to index.html after 10 seconds
+            setTimeout(() => {
+                window.location.href = 'prototype/index.html';
+            }, 100000);
+        }
+    }
 
         // Continuously detect poses
         requestAnimationFrame(detect);

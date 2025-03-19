@@ -47,33 +47,59 @@ function isOpenHand(landmarks) {
     return extendedFingers >= 3;
 }
 
+function isClosedHand(landmarks) {
+    // More precise closed hand detection
+    const thumbTip = landmarks[4]; // Thumb tip
+    const indexTip = landmarks[8]; // Index finger tip
+    const middleTip = landmarks[12]; // Middle finger tip
+    const ringTip = landmarks[16]; // Ring finger tip
+    const pinkyTip = landmarks[20]; // Pinky tip
+
+    // Measure distances between fingertips and palm
+    const palmBase = landmarks[0]; // Palm base
+
+    // Check distances between thumb and index, and ensure other fingers are also closed
+    const thumbIndexDistance = Math.hypot(thumbTip[0] - indexTip[0], thumbTip[1] - indexTip[1]);
+    const indexMiddleDistance = Math.hypot(indexTip[0] - middleTip[0], indexTip[1] - middleTip[1]);
+    const middleRingDistance = Math.hypot(middleTip[0] - ringTip[0], middleTip[1] - ringTip[1]);
+    const ringPinkyDistance = Math.hypot(ringTip[0] - pinkyTip[0], ringTip[1] - pinkyTip[1]);
+
+    // All fingers should be close together for a proper fist
+    return (thumbIndexDistance < 30 && indexMiddleDistance < 30 && middleRingDistance < 30 && ringPinkyDistance < 30);
+}
+
+
 // Function to detect hands and gestures
 async function detectGestures() {
     if (!model) return;
 
     // Get hand predictions
-    const predictions = await model.estimateHands(video);
+    const predictions = await model.estimateHands(videoStream);
     if (predictions.length > 0) {
         // Check if at least one hand has an open palm
         const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
+        const atLeastOneClosed = predictions.some(prediction => isClosedHand(prediction.landmarks));
 
         if (atLeastOneOpen) {
             console.log('At Least One Open Palm Detected');
-            // Navigate to a random HTML page after 3 seconds
+            // Randomly navigate to one of the pages after 3 seconds
             setTimeout(() => {
                 const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
                 const randomPage = pages[Math.floor(Math.random() * pages.length)];
                 window.location.href = randomPage;
-            }, 3000); // 3-second delay
-        } else {
-            console.log('Both Hands Closed: Navigating to index.html');
-            // Navigate to index.html after 10 seconds
+            }, 3000);
+        } else if (atLeastOneClosed){
             setTimeout(() => {
                 window.location.href = 'index.html';
-            }, 10000); // 10-second delay
+            }, 3000);
         }
-    } else {
-        console.log('No Hands Detected');
+        else {
+            console.log('Both Hands Closed: Waiting 10 Seconds...');
+            // Navigate to index.html after 10 seconds
+            setTimeout(() => {
+                window.location.href = 'prototype/index.html';
+            }, 100000);
+        }
     }
 }
 

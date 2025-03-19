@@ -52,6 +52,28 @@ function isOpenHand(landmarks) {
     return extendedFingers >= 3;
 }
 
+function isClosedHand(landmarks) {
+    // More precise closed hand detection
+    const thumbTip = landmarks[4]; // Thumb tip
+    const indexTip = landmarks[8]; // Index finger tip
+    const middleTip = landmarks[12]; // Middle finger tip
+    const ringTip = landmarks[16]; // Ring finger tip
+    const pinkyTip = landmarks[20]; // Pinky tip
+
+    // Measure distances between fingertips and palm
+    const palmBase = landmarks[0]; // Palm base
+
+    // Check distances between thumb and index, and ensure other fingers are also closed
+    const thumbIndexDistance = Math.hypot(thumbTip[0] - indexTip[0], thumbTip[1] - indexTip[1]);
+    const indexMiddleDistance = Math.hypot(indexTip[0] - middleTip[0], indexTip[1] - middleTip[1]);
+    const middleRingDistance = Math.hypot(middleTip[0] - ringTip[0], middleTip[1] - ringTip[1]);
+    const ringPinkyDistance = Math.hypot(ringTip[0] - pinkyTip[0], ringTip[1] - pinkyTip[1]);
+
+    // All fingers should be close together for a proper fist
+    return (thumbIndexDistance < 30 && indexMiddleDistance < 30 && middleRingDistance < 30 && ringPinkyDistance < 30);
+}
+
+
 // Function to detect hands and gestures
 async function detectGestures() {
     if (!model) return;
@@ -61,6 +83,7 @@ async function detectGestures() {
     if (predictions.length > 0) {
         // Check if at least one hand has an open palm
         const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
+        const atLeastOneClosed = predictions.some(prediction => isClosedHand(prediction.landmarks));
 
         if (atLeastOneOpen) {
             console.log('At Least One Open Palm Detected');
@@ -70,15 +93,18 @@ async function detectGestures() {
                 const randomPage = pages[Math.floor(Math.random() * pages.length)];
                 window.location.href = randomPage;
             }, 3000);
-        } else {
+        } else if (atLeastOneClosed){
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 3000);
+        }
+        else {
             console.log('Both Hands Closed: Waiting 10 Seconds...');
             // Navigate to index.html after 10 seconds
             setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 10000);
+                window.location.href = 'prototype/index.html';
+            }, 100000);
         }
-    } else {
-        console.log('No Hands Detected');
     }
 }
 
@@ -219,4 +245,3 @@ window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 initWebcam();
 animate();
-
