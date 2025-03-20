@@ -73,7 +73,7 @@ async function detectGestures() {
         if (atLeastOneOpen) {
             console.log('At Least One Open Palm Detected');
             setTimeout(() => {
-                const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
+                const pages = ['particle6.html', 'particle3.html', 'particle1.html'];
                 const randomPage = pages[Math.floor(Math.random() * pages.length)];
                 window.location.href = randomPage;
             }, 3000);
