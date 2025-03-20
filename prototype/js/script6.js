@@ -191,7 +191,7 @@ async function estimatePose(video, net) {
                         console.log('At Least One Open Palm Detected');
                         // Navigate to a random HTML page after 3 seconds
                         setTimeout(() => {
-                            const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
+                            const pages = ['particle4.html', 'particle3.html', 'particle1.html'];
                             const randomPage = pages[Math.floor(Math.random() * pages.length)];
                             window.location.href = randomPage;
                         }, 3000); // 3-second delay
