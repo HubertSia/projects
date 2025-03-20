@@ -256,7 +256,7 @@
 
 
 
-// Get the main canvas element and its 2D rendering context
+// Get main canvas element + 2D rendering context
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -272,12 +272,13 @@ const motionCtx = motionCanvas.getContext("2d");
 let videoStream;
 let particles = [];
 // Define the grid size for particles
-const cols = 60, rows = 60; // Increased density for better shape representation
+const cols = 60, rows = 60; // CHANGE DENSITY AS NEEDED!!!!
 
 // Store previous frame for motion detection
 let prevFrame = null;
 
 // Load HandPose model
+//var
 let model;
 
 async function loadHandPoseModel() {
@@ -302,7 +303,7 @@ function isOpenHand(landmarks) {
     const pinkyDistance = Math.hypot(pinkyTip[0] - wrist[0], pinkyTip[1] - wrist[1]);
 
     // Thresholds for open palm
-    const openThreshold = 100; // Adjust based on testing
+    const openThreshold = 100; // ADJUST BASED ON DEVICE!!!!
 
     // Check if most fingers are extended (open palm)
     const extendedFingers = [
@@ -355,16 +356,17 @@ async function detectGestures() {
                 window.location.href = randomPage;
             }, 3000);
         } else if (atLeastOneClosed) {
+            //if fist, then go back to the homepage, 3 second delay again
             setTimeout(() => {
                 window.location.href = 'index.html';
             }, 3000);
         }
         else {
             console.log('Both Hands Closed: Waiting 10 Seconds...');
-            // Navigate to index.html after 10 seconds
+            // Navigate to index.html after 3 minutes
             setTimeout(() => {
                 window.location.href = 'prototype/index.html';
-            }, 100000);
+            }, 180000);
         }
     }
 }
@@ -375,20 +377,18 @@ async function detectGestures() {
 function resizeCanvas() {
     canvas.width = window.innerWidth;  // Set canvas width to window width
     canvas.height = window.innerHeight;  // Set canvas height to window height
-    console.log(`Canvas resized to ${canvas.width}x${canvas.height}`);
-
-    // Also resize motion detection canvas
+    // same thing for motion detection canvas
     motionCanvas.width = cols;
     motionCanvas.height = rows;
 
-    createParticles();  // Recreate particles to fit the new canvas size
+    createParticles();  // Recreate particles to fit the new size
 }
 
 /**
  * Function to initialize the webcam
  */
 function initWebcam() {
-    // Request access to the user's webcam with higher resolution
+    // Request access to the user's webcam
     navigator.mediaDevices.getUserMedia({
         video: {
             width: { ideal: 1280 },
@@ -396,9 +396,9 @@ function initWebcam() {
         }
     })
         .then(stream => {
-            // Create a video element to stream the webcam feed
+            // Create a video element to stream the feed
             videoStream = document.createElement("video");
-            videoStream.srcObject = stream;  // Set the video source to the webcam stream
+            videoStream.srcObject = stream;  // Set the video source to the stream
             videoStream.play();  // Start playing the video
 
             // Load HandPose model after webcam starts
@@ -438,37 +438,37 @@ class Particle {
         this.y = y;  // Current y position
         this.waveOffset = Math.random() * Math.PI * 2;  // Random offset for wave-like motion
 
-        // Determine gradient position based on y position (top to bottom)
+        // Determine gradient position based on y position (top to bottom, orange to blue)
         this.gradientPosition = y / canvas.height;
 
-        // Assign one of three sizes randomly
+        // Assign three sizes randomly
         const sizeCategory = Math.floor(Math.random() * 3);
         if (sizeCategory === 0) {
             this.radius = 3; // Small
         } else if (sizeCategory === 1) {
             this.radius = 6; // Medium
         } else {
-            this.radius = 9; // Large
+            this.radius = 9; // Big boy
         }
 
-        // Base opacity (will be modified during drawing)
+        // Base opacity
         this.baseOpacity = 0.6 + Math.random() * 0.4; // Between 0.6 and 1.0
 
-        // Properties for motion response
+        // Properties for move response
         this.velocity = { x: 0, y: 0 };
         this.acceleration = { x: 0, y: 0 };
-        this.mass = this.radius; // Bigger particles have more mass
+        this.mass = this.radius; // Big bois have more mass
         this.friction = 0.92; // Friction to gradually slow down particles
-        this.maxSpeed = 15; // Maximum speed limit
-        this.attracted = false; // Flag to track if particle is affected by motion
-        this.motionStrength = 0; // How much this particle is affected by motion
+        this.maxSpeed = 15; // Max speed limit
+        this.attracted = false; // track if particle is affected
+        this.motionStrength = 0; // How much ia this particle is affected
     }
 
     /**
-     * Apply force to the particle (based on detected motion)
+     * Apply force yeeeeeeee
      */
     applyForce(forceX, forceY, motionValue) {
-        // Scale force by inverse mass (smaller particles affected more)
+        // Small particles move more
         const fx = forceX / this.mass;
         const fy = forceY / this.mass;
 
@@ -476,10 +476,10 @@ class Particle {
         this.acceleration.x += fx;
         this.acceleration.y += fy;
 
-        // Track motion strength for visual effects
+        // Track motion strength for effect
         this.motionStrength = Math.min(1, motionValue / 100);
 
-        // Flag as attracted if significant motion is detected
+        // Flag as attracted if motion is detected
         this.attracted = motionValue > 10;
     }
 
@@ -487,7 +487,7 @@ class Particle {
      * Update the particle's position based on motion and brightness
      */
     update(brightness, motionValue) {
-        // Apply subtle wave movement all the time
+        // Apply subtle wave movement all the time, similar to original Hubert code
         const waveStrength = 0.5;
         const waveX = Math.sin(this.waveOffset + performance.now() * 0.001) * waveStrength;
         const waveY = Math.cos(this.waveOffset + performance.now() * 0.001) * waveStrength;
@@ -500,19 +500,17 @@ class Particle {
         const springX = distanceX * springStrength;
         const springY = distanceY * springStrength;
 
-        // Apply spring force to gradually return to original position
+        // Apply spring force to gradually return to original position, idk i stole all this
         this.acceleration.x += springX;
         this.acceleration.y += springY;
 
-        // Update velocity with acceleration
+        // Update velocity with acceleration and friction I think
         this.velocity.x += this.acceleration.x;
         this.velocity.y += this.acceleration.y;
-
-        // Apply friction
         this.velocity.x *= this.friction;
         this.velocity.y *= this.friction;
 
-        // Limit maximum speed
+        // constrain max speed
         const speed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y);
         if (speed > this.maxSpeed) {
             this.velocity.x = (this.velocity.x / speed) * this.maxSpeed;
@@ -530,7 +528,7 @@ class Particle {
         // Update gradient position based on current y position
         this.gradientPosition = this.y / canvas.height;
 
-        // Size pulsing effect based on motion and brightness
+        // Size pulsing effect based on motion and brightness again
         const pulseStrength = Math.max(this.motionStrength, brightness / 255 * 0.5);
         if (this.attracted) {
             this.currentRadius = this.radius * (1 + pulseStrength * 0.5);
@@ -540,28 +538,28 @@ class Particle {
     }
 
     /**
-     * Draw the particle on the canvas with radial gradient
+     * Draw the particle on the canvas with the opacity gradient
      */
     draw() {
-        // Get the current color based on vertical position
+        // Get the current color based on position
         const color = getGradientColor(this.gradientPosition);
 
-        // Create radial gradient for the particle
+        // Create gradient
         const gradient = ctx.createRadialGradient(
             this.x, this.y, 0,
             this.x, this.y, this.currentRadius || this.radius
         );
 
         // Extract RGB values from the color string
-        const rgb = color.match(/\d+/g);
+        const rgb = color.match(/\d+/g); //???????
         if (!rgb || rgb.length < 3) return; // Safety check
 
-        // Calculate final opacity based on motion
+        // Calculate final opacity based on where it is in the motion path
         const finalOpacity = this.attracted ?
             Math.min(1, this.baseOpacity + this.motionStrength * 0.4) :
             this.baseOpacity;
 
-        // Add color stops with decreasing opacity towards the edge
+        // Add color stops with decreasing opacity towards the edge, glow effect
         gradient.addColorStop(0, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${finalOpacity})`);
         gradient.addColorStop(0.6, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${finalOpacity * 0.6})`);
         gradient.addColorStop(1, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0)`);
@@ -580,71 +578,59 @@ class Particle {
 function createParticles() {
     particles = [];  // Clear existing particles
 
-    // Safety check to ensure canvas dimensions are valid
-    if (canvas.width <= 0 || canvas.height <= 0) {
-        console.error("Invalid canvas dimensions:", canvas.width, canvas.height);
-        return;
-    }
-
-    // Calculate spacing between particles based on canvas size and grid dimensions
+    // Calculate spacing
     const spacingX = canvas.width / cols;
     const spacingY = canvas.height / rows;
 
-    console.log(`Creating ${cols}x${rows} particles grid with spacing ${spacingX}x${spacingY}`);
-
-    // Loop through rows and columns to create particles
+    // Loop through rows and columns to create particles, PLZ WORK ISTG 
     for (let y = 0; y < rows; y++) {
         for (let x = 0; x < cols; x++) {
             const particle = new Particle(
-                x * spacingX + spacingX / 2, // Center particles in their grid cells
+                x * spacingX + spacingX / 2,
                 y * spacingY + spacingY / 2
             );
             particles.push(particle);
         }
     }
-
-    console.log(`Created ${particles.length} particles`);
 }
 
 /**
- * Function to calculate the brightness of a pixel at (x, y) in the webcam feed
+ * Function to calculate the brightness 
  */
 function getBrightness(x, y, imageData) {
     // Ensure x and y are within bounds
     x = Math.max(0, Math.min(x, imageData.width - 1));
     y = Math.max(0, Math.min(y, imageData.height - 1));
 
-    // Calculate the index of the pixel in the image data array
+    // Calculate the index
     let index = (y * imageData.width + x) * 4;
-    // Return the average of the red, green, and blue channels as brightness
     return (imageData.data[index] + imageData.data[index + 1] + imageData.data[index + 2]) / 3;
 }
 
 /**
  * Detect motion between current and previous frame
- * @returns {ImageData} Motion data where brighter pixels indicate more motion
+ * @returns {ImageData} Motion data where brighter pixels indicate more movement
  */
 function detectMotion(currentFrame) {
     if (!prevFrame || !currentFrame) {
-        // If this is the first frame, save it and return null
+        // If this is the first frame, save it
         prevFrame = currentFrame;
         return null;
     }
 
-    // Create new ImageData for the motion result
+    // Create new ImageData for the motion result from the webcam
     const motionData = motionCtx.createImageData(currentFrame.width, currentFrame.height);
 
     // Compare each pixel between frames to detect motion
     for (let i = 0; i < currentFrame.data.length; i += 4) {
-        // Calculate absolute difference for each channel
         const rDiff = Math.abs(currentFrame.data[i] - prevFrame.data[i]);
         const gDiff = Math.abs(currentFrame.data[i + 1] - prevFrame.data[i + 1]);
         const bDiff = Math.abs(currentFrame.data[i + 2] - prevFrame.data[i + 2]);
 
-        // Calculate motion intensity (average of differences)
+        // Calculate motion intensity 
         const motionIntensity = (rDiff + gDiff + bDiff) / 3;
 
-        // Apply threshold to reduce noise (increase for less sensitivity)
+        // Apply threshold to reduce noise, increase for less sensitivity
         const threshold = 10;
         const finalIntensity = motionIntensity > threshold ? motionIntensity * 2 : 0;
 
@@ -652,32 +638,31 @@ function detectMotion(currentFrame) {
         motionData.data[i] = finalIntensity;     // R
         motionData.data[i + 1] = finalIntensity; // G
         motionData.data[i + 2] = finalIntensity; // B
-        motionData.data[i + 3] = 255;           // Alpha (fully opaque)
+        motionData.data[i + 3] = 255;           // opaque
     }
 
-    // Draw motion data to the motion canvas (for debugging if needed)
+    // Draw motion data to the motion canvas, DEBUGGING!!!
     motionCtx.putImageData(motionData, 0, 0);
 
-    // Update previous frame for next comparison
+    // Update previous frame for next comparing round
     prevFrame = currentFrame;
 
     return motionData;
 }
 
 /**
- * Function to process the webcam feed and return pixel data
+ * Function to process the webcam feed
  */
 function processWebcamData() {
-    // Check if the webcam stream is ready
     if (videoStream && videoStream.readyState >= 2) {
-        // Set offscreen canvas size to match our particle grid
+        // Set offscreen canvas size to matchthe particle grid
         offscreenCanvas.width = cols;
         offscreenCanvas.height = rows;
 
-        // Draw the webcam feed onto the offscreen canvas
+        // Draw the webcam feed on the offscreen canvas
         offscreenCtx.drawImage(videoStream, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
 
-        // Get the pixel data
+        // Get the data
         const currentFrame = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
 
         // Detect motion between frames
@@ -688,14 +673,14 @@ function processWebcamData() {
             motion: motionFrame
         };
     }
-    return null;  // Return null if the webcam stream is not ready
+    return null;  // if the webcam stream is not ready
 }
 
 /**
  * Animation loop to update and draw particles
  */
 function animate() {
-    // Clear the canvas with a very slight transparency for trail effect
+    // Clear the canvas with a very slight transparency for trail effect thingy
     ctx.fillStyle = 'rgba(0, 0, 0, 0.2)'; // More transparency for longer trails
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -707,27 +692,27 @@ function animate() {
         const currentFrame = frameData.current;
         const motionFrame = frameData.motion;
 
-        // Loop through all particles
+        // Loop
         particles.forEach(p => {
-            // Calculate grid position for this particle
+            // Calculate position for given particle
             const gridX = Math.floor((p.baseX / canvas.width) * cols);
             const gridY = Math.floor((p.baseY / canvas.height) * rows);
 
             // Get the brightness of the corresponding pixel
             const brightness = getBrightness(gridX, gridY, currentFrame);
 
-            // If we have motion data, apply forces based on motion
+            // If we have motion data, apply forces needed
             if (motionFrame) {
                 const motionValue = getBrightness(gridX, gridY, motionFrame);
 
-                // Calculate force direction - away from motion center
+                // Calculate force direction
                 // This creates a "repulsion" effect where particles move away from motion
                 const centerX = cols / 2;
                 const centerY = rows / 2;
                 const forceX = (gridX - centerX) * (motionValue / 50);
                 const forceY = (gridY - centerY) * (motionValue / 50);
 
-                // Apply the calculated force to the particle
+                // Apply the force
                 p.applyForce(forceX, forceY, motionValue);
             }
 
@@ -738,7 +723,7 @@ function animate() {
     } else {
         // If no video data, just update and draw particles with default values
         particles.forEach(p => {
-            p.update(100, 0); // Default middle brightness, no motion
+            p.update(100, 0);
             p.draw();
         });
     }
