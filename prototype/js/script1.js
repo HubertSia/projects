@@ -103,11 +103,11 @@ navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
             startParticles(); // Start particles once video is loaded
             loadHandPoseModel().then(() => {
                 // Add a 1-minute delay before starting gesture detection
-                //setTimeout(() => {
-                   // console.log("Hand detection is now active!");
+                setTimeout(() => {
+                    console.log("Hand detection is now active!");
                     // Start detecting gestures every second after the delay
                     setInterval(detectGestures, 1000); // Check for gestures every second
-                //}, 60000); // 60,000 milliseconds = 1 minute
+                }, 60000); // 60,000 milliseconds = 1 minute
             });
         });
     })

@@ -75,8 +75,8 @@ function updateParticles(ctx) {
 async function setupCamera() {
     // Create a video element
     const video = document.createElement('video');
-    video.width = 640;
-    video.height = 480;
+    video.width = 1920;
+    video.height = 1080;
 
     // Request access to user's webcam
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -170,7 +170,7 @@ async function estimatePose(video, net) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         // Draw skeleton on detected keypoints
-        drawSkeleton(pose.keypoints, ctx);
+        //drawSkeleton(pose.keypoints, ctx);
 
         // Draw keypoints (joints)
         drawKeypoints(pose.keypoints, ctx);
@@ -180,8 +180,8 @@ async function estimatePose(video, net) {
 
 // Hand gesture detection
         if (handposeModel) {
-           /** setTimeout(async () => {
-                console.log("Hand detection is now active!"); */
+            setTimeout(async () => {
+                console.log("Hand detection is now active!"); 
                 const predictions = await handposeModel.estimateHands(video);
                 if (predictions.length > 0) {
                     // Check if at least one hand has an open palm
@@ -205,7 +205,7 @@ async function estimatePose(video, net) {
                 } else {
                     console.log('No Hands Detected');
                 }
-            //}, 60000); // 60,000 milliseconds = 1 minute
+            }, 60000); // 60,000 milliseconds = 1 minute
         }
 
         // Continuously detect poses
@@ -236,7 +236,7 @@ function drawKeypoints(keypoints, ctx) {
 
 /**
  * Function to draw a skeleton by connecting adjacent keypoints
- */
+
 function drawSkeleton(keypoints, ctx) {
     const adjacentKeyPoints = posenet.getAdjacentKeyPoints(keypoints, 0.5);
 
@@ -250,7 +250,7 @@ function drawSkeleton(keypoints, ctx) {
         ctx.lineWidth = 2;
         ctx.stroke();
     });
-}
+} */
 
 /**
  * Main function to initialize webcam, load PoseNet, and start pose detection
