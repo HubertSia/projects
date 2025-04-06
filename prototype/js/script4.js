@@ -395,19 +395,32 @@ function initWebcam() {
             height: { ideal: 720 }
         }
     })
-        .then(stream => {
-            // Create a video element to stream the feed
-            videoStream = document.createElement("video");
-            videoStream.srcObject = stream;  // Set the video source to the stream
-            videoStream.play();  // Start playing the video
+    .then(stream => {
+        // Create a video element to stream the feed
+        videoStream = document.createElement("video");
+        videoStream.srcObject = stream;
+        videoStream.play();
 
-            // Load HandPose model after webcam starts
-            loadHandPoseModel().then(() => {
-                // Start detecting gestures
-                setInterval(detectGestures, 1000); // Check for gestures every second
-            });
-        })
-        .catch(err => console.error("Webcam access denied", err));  // Log errors if webcam access is denied
+        // Load HandPose model after webcam starts
+        loadHandPoseModel().then(() => {
+            console.log("Hand detection will activate in 1 minute...");
+            
+            // Countdown in console
+            let secondsLeft = 60;
+            const countdown = setInterval(() => {
+                secondsLeft--;
+                if (secondsLeft > 0) {
+                    console.log(`Starting hand detection in ${secondsLeft} seconds...`);
+                } else {
+                    clearInterval(countdown);
+                    console.log("Hand detection is now active!");
+                    // Start detecting gestures every second
+                    setInterval(detectGestures, 1000);
+                }
+            }, 1000);
+        });
+    })
+    .catch(err => console.error("Webcam access denied", err));
 }
 
 /**
