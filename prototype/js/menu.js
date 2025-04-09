@@ -1,201 +1,328 @@
-// Galaxy Particle Animation with Three.js
-// import * as THREE from 'three';
-//import inside the document not working correctly, only global import in the index.html file
-const scene = new THREE.Scene();   // Creates container to hold all 3D objects (To be added?)
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);  // Creates camera with 75° field of view for now, aspect ratio, clipping planes
-const renderer = new THREE.WebGLRenderer({ antialias: true });  // Creates a WebGL renderer + antialiasing = smoother edges for later
-renderer.setSize(window.innerWidth, window.innerHeight);  // fill the entire browser window
-renderer.setClearColor(0x000000);  // Sets background to black
-document.body.appendChild(renderer.domElement);   // add canvas to page
+/* ================ LOADING SYSTEM ================ */
+// This section handles all preloading and shows a progress bar
 
-// Set renderer to full screen
-renderer.domElement.style.position = 'fixed';  // Uses fixed positioning for the canvas
-renderer.domElement.style.top = '0';  // Places canvas at the top edge
-renderer.domElement.style.left = '0';  // left edge
-renderer.domElement.style.width = '100%';  //full width
-renderer.domElement.style.height = '100%';  // height
-renderer.domElement.style.zIndex = '1';  // layer purposes just in case
+// Create full-screen loading overlay
+const loadingContainer = document.createElement('div');
+loadingContainer.id = 'loading-container';
+loadingContainer.style.position = 'fixed';
+loadingContainer.style.top = '0';
+loadingContainer.style.left = '0';
+loadingContainer.style.width = '100%';
+loadingContainer.style.height = '100%';
+loadingContainer.style.backgroundColor = '#000';
+loadingContainer.style.display = 'flex';
+loadingContainer.style.flexDirection = 'column';
+loadingContainer.style.justifyContent = 'center';
+loadingContainer.style.alignItems = 'center';
+loadingContainer.style.zIndex = '1000'; // Ensure it's on top
 
-// Camera position
-camera.position.z = 1.5;  // adjustable zoom, more zoomed in looks a bit better
+// Loading text element
+const loadingText = document.createElement('div');
+loadingText.textContent = 'Loading interactive experience...';
+loadingText.style.color = '#fff';
+loadingText.style.fontFamily = 'Arial, sans-serif';
+loadingText.style.fontSize = '24px';
+loadingText.style.marginBottom = '20px';
 
-// Galaxy parameters
+// Progress bar container
+const progressBar = document.createElement('div');
+progressBar.style.width = '300px';
+progressBar.style.height = '10px';
+progressBar.style.backgroundColor = '#333'; // Background of progress bar
+progressBar.style.borderRadius = '5px';
+
+// Progress fill element (green bar)
+const progressFill = document.createElement('div');
+progressFill.style.width = '0%';
+progressFill.style.height = '100%';
+progressFill.style.backgroundColor = '#4CAF50'; // Green progress color
+progressFill.style.borderRadius = '5px';
+progressFill.style.transition = 'width 0.3s'; // Smooth animation
+
+// Assemble progress bar
+progressBar.appendChild(progressFill);
+loadingContainer.appendChild(loadingText);
+loadingContainer.appendChild(progressBar);
+document.body.appendChild(loadingContainer);
+
+/* ================ MODEL LOADING ================ */
+// Tracks which libraries have loaded
+let tfLoaded = false;
+let handposeLoaded = false;
+let poseDetectionLoaded = false;
+
+// Update progress bar (0-100)
+function updateProgress(percent) {
+    progressFill.style.width = `${percent}%`;
+}
+
+// Load TensorFlow.js core
+async function loadTF() {
+    if (typeof tf === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs';
+        script.onload = () => {
+            tfLoaded = true;
+            updateProgress(30); // 30% when TF loaded
+        };
+        document.head.appendChild(script);
+    } else {
+        tfLoaded = true;
+        updateProgress(30);
+    }
+}
+
+// Load Handpose model
+async function loadHandpose() {
+    if (typeof handpose === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose';
+        script.onload = async () => {
+            updateProgress(50); // 50% when handpose loaded
+            handposeLoaded = true;
+        };
+        document.head.appendChild(script);
+    } else {
+        handposeLoaded = true;
+        updateProgress(50);
+    }
+}
+
+// Load Pose Detection model
+async function loadPoseDetection() {
+    if (typeof poseDetection === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection';
+        script.onload = async () => {
+            updateProgress(70); // 70% when pose loaded
+            poseDetectionLoaded = true;
+        };
+        document.head.appendChild(script);
+    } else {
+        poseDetectionLoaded = true;
+        updateProgress(70);
+    }
+}
+
+// Start loading all required libraries
+loadTF();
+loadHandpose();
+loadPoseDetection();
+
+/* ================ THREE.JS GALAXY SCENE ================ */
+// Main 3D scene configuration
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(
+    75, // Field of view (degrees)
+    window.innerWidth / window.innerHeight, // Aspect ratio
+    0.1, // Near clipping plane
+    1000 // Far clipping plane
+);
+const renderer = new THREE.WebGLRenderer({ antialias: true }); // Smoother edges
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000); // Black background
+document.body.appendChild(renderer.domElement);
+
+// Fullscreen canvas styling
+renderer.domElement.style.position = 'fixed';
+renderer.domElement.style.top = '0';
+renderer.domElement.style.left = '0';
+renderer.domElement.style.width = '100%';
+renderer.domElement.style.height = '100%';
+renderer.domElement.style.zIndex = '1'; // Behind UI elements
+
+// Camera position (adjust for zoom level)
+camera.position.z = 1.5;
+
+/* ================ GALAXY PARAMETERS ================ */
+// Customize these values to change galaxy appearance
 const parameters = {
-    count: 100000,  // Number of particles (stars)
-    size: 0.01,  // Size of each particle
-    radius: 5,
-    branches: 5,  // Number of arm thingies
-    spin: 1,  // How much the arms spin
-    randomness: 0.7,  // How random particle positions are
-    randomnessPower: 3,  // control concentration of random distribution
-    insideColor: 0xff6030,  // Orange color for inner particles
-    outsideColor: 0x1b3984  // Blue color for outer particles
+    count: 100000,       // Number of stars/particles
+    size: 0.01,          // Size of each particle
+    radius: 5,           // Overall size of galaxy
+    branches: 5,         // Number of spiral arms
+    spin: 1,             // Twist/tightness of arms
+    randomness: 0.7,     // How scattered stars are
+    randomnessPower: 3,  // Controls distribution of randomness
+    insideColor: 0xff6030, // Center color (orange)
+    outsideColor: 0x1b3984 // Edge color (blue)
 };
 
-// Galaxy geometry and material
-let geometry = null;  // hold particle positions and colors
-let material = null;  // Control how particles look
-let points = null;  // Final render
+// Galaxy rendering variables
+let geometry = null;
+let material = null;
+let points = null;
 
+/* ================ GALAXY GENERATION ================ */
+// Creates the particle galaxy
 const generateGalaxy = () => {
-    // Dispose of old particles
+    // Clean up previous galaxy if exists
     if (points !== null) {
         geometry.dispose();
         material.dispose();
         scene.remove(points);
     }
 
-    // Geometry
-    geometry = new THREE.BufferGeometry();  // Creates new empty geometry
+    // Create geometry and arrays for particle data
+    geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(parameters.count * 3); // x,y,z for each particle
+    const colors = new Float32Array(parameters.count * 3);    // r,g,b for each particle
 
-    const positions = new Float32Array(parameters.count * 3);  //array for x,y,z positions
-    const colors = new Float32Array(parameters.count * 3);  //array for r,g,b colors
+    // Color setup
+    const colorInside = new THREE.Color(parameters.insideColor);
+    const colorOutside = new THREE.Color(parameters.outsideColor);
 
-    const colorInside = new THREE.Color(parameters.insideColor);  // Inner color
-    const colorOutside = new THREE.Color(parameters.outsideColor);  // Outer color
-
-    //Loopity loop to generate points
+    // Create each particle
     for (let i = 0; i < parameters.count; i++) {
-        const i3 = i * 3;  // idk what this is, I pillaged it, but each particle needs 3 consecutive array elements
+        const i3 = i * 3;
+        
+        // Position calculations
+        const radius = Math.random() * parameters.radius;
+        const spinAngle = radius * parameters.spin;
+        const branchAngle = (i % parameters.branches) / parameters.branches * Math.PI * 2;
 
-        // Positions, idk i pillaged the code for the shape, see attributes 
-        const radius = Math.random() * parameters.radius;  // Random distance from center
-        const spinAngle = radius * parameters.spin;  // calculates twist
-        const branchAngle = (i % parameters.branches) / parameters.branches * Math.PI * 2;  // Distributes particles into arms
+        // Random offsets (creates organic look)
+        const randomX = Math.pow(Math.random(), parameters.randomnessPower) * 
+                       (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
+        const randomY = Math.pow(Math.random(), parameters.randomnessPower) * 
+                       (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
+        const randomZ = Math.pow(Math.random(), parameters.randomnessPower) * 
+                       (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
 
-        // Particles further from center = more randomness
-        // Math.pow makes randomness distribution non-linear, idk what it actually does
-        // Random < 0.5 randomly flips between positive/negative offsets, more variation
-        const randomX = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
-        const randomY = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
-        const randomZ = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
+        // Set positions
+        positions[i3] = Math.cos(branchAngle + spinAngle) * radius + randomX;
+        positions[i3 + 1] = randomY;
+        positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
 
-        // Umm????
-        positions[i3] = Math.cos(branchAngle + spinAngle) * radius + randomX;  // x position
-        positions[i3 + 1] = randomY;  // Y position (only random offset, keeps galaxy relatively flat, CAN MODIFY)
-        positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;  // z position
+        // Color gradient from center to edge
+        const mixedColor = colorInside.clone();
+        mixedColor.lerp(colorOutside, radius / parameters.radius);
 
-        // Color
-        const mixedColor = colorInside.clone();  // inner color
-        mixedColor.lerp(colorOutside, radius / parameters.radius);  // Blend to outer color based on radius
-
-        colors[i3] = mixedColor.r;  // Red 
-        colors[i3 + 1] = mixedColor.g;  // Green
-        colors[i3 + 2] = mixedColor.b;  // Blue
+        // Set colors
+        colors[i3] = mixedColor.r;
+        colors[i3 + 1] = mixedColor.g;
+        colors[i3 + 2] = mixedColor.b;
     }
 
-    // Attach position + color data
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));  // Add positions to geometry
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));  // Add colors to geometry
+    // Add attributes to geometry
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-    // Material, to be modified
-    material = new THREE.PointsMaterial({  // Creates material for particles
-        size: parameters.size,  // Size 
-        sizeAttenuation: true,  // Makes distant particles smaller
-        depthWrite: false,    // Prevents particles blocking each other
-        blending: THREE.AdditiveBlending,  // Makes overlapping particles brighten (like real stars yk)
-        vertexColors: true   // Uses the colors we defined per vertex earlier
+    // Create material for particles
+    material = new THREE.PointsMaterial({
+        size: parameters.size,
+        sizeAttenuation: true,  // Particles get smaller with distance
+        depthWrite: false,      // Better transparency handling
+        blending: THREE.AdditiveBlending, // Brightens overlapping particles
+        vertexColors: true      // Use our custom colors
     });
 
-    // Points
-    points = new THREE.Points(geometry, material);  // Creates the systenm
-    scene.add(points);  // Adds particles to canvas
+    // Create final particle system
+    points = new THREE.Points(geometry, material);
+    scene.add(points);
 };
 
-generateGalaxy();  // spawn everything
+// Generate initial galaxy
+generateGalaxy();
 
-// Animation
-const clock = new THREE.Clock();  // Track time for spin animation
-let userRotation = 0;  // User controlled rotation amount
-let targetRotation = 0;  // Target rotation for smoothness
-const rotationSmoothing = 0.01;  // Lower = slower, smoother transitions
+/* ================ ANIMATION LOOP ================ */
+const clock = new THREE.Clock();
+let userRotation = 0;
+let targetRotation = 0;
+const rotationSmoothing = 0.01; // Lower = smoother but slower rotation
 
-function animate() {  // Animation loop
-    const elapsedTime = clock.getElapsedTime();  // Gets time since start
-
-    // Smooth interpolation toward target rotation
-    userRotation += (targetRotation - userRotation) * rotationSmoothing;  // Gradually moves toward target
-
-    // Base rotation + smoothed user controlled rotation
-    points.rotation.y = elapsedTime * 0.03 + userRotation;  // Combines automatic and user rotation, rotates around y axis by default
-
-    renderer.render(scene, camera);  // Renders the scene
-    requestAnimationFrame(animate);  // Continues loop
+function animate() {
+    const elapsedTime = clock.getElapsedTime();
+    
+    // Smooth rotation towards target
+    userRotation += (targetRotation - userRotation) * rotationSmoothing;
+    
+    // Combine automatic and user rotation
+    points.rotation.y = elapsedTime * 0.03 + userRotation;
+    
+    // Render frame
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
 }
-
-// Window resizing stuff
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;  // Updates aspect ratio
-    camera.updateProjectionMatrix();  // Updates camera 
-    renderer.setSize(window.innerWidth, window.innerHeight);  // resize
-});
-
-// Mouse control (fallback)
-const mousePosition = new THREE.Vector2();  // Tracks position
-let usingBodyTracking = false;  // Flag for whether body tracking is active, only activates if not
-
-// Sensitivity controls, ALLVALUES TO BE ADJUSTED!!
-const settings = {
-    bodyRotationSensitivity: 0.8,  // How much body movement affects the rotation
-    cameraTiltSensitivity: 0.5,   // How much body movement tilts camera (Up/down)
-    mouseRotationSensitivity: 0.5,  // How much mouse movement affects galaxy rotation
-    smoothingFactor: 0.1           // How quickly camera moves to new positions
-};
-
-// Tracking target camera positions (Added for smoothing again)
-let targetCameraX = 0;
-let targetCameraY = 0;
-
-window.addEventListener('mousemove', (event) => {  // Mouse movement fallback controls
-    if (!usingBodyTracking) {  // Only use mouse if not using body tracking
-        mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;  // Normalize x position to -1 to 1
-        mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;  // Normalize y position to -1 to 1
-
-        // Set camera target positions with reduced sensitivity
-        targetCameraX = mousePosition.x * settings.cameraTiltSensitivity;  // x target
-        targetCameraY = mousePosition.y * settings.cameraTiltSensitivity;  // y target
-        targetRotation = mousePosition.x * settings.mouseRotationSensitivity;  // Sets rotation target
-
-        // Smooth camera movement
-        camera.position.x += (targetCameraX - camera.position.x) * settings.smoothingFactor;  // Gradually moves camera x
-        camera.position.y += (targetCameraY - camera.position.y) * settings.smoothingFactor;  // Gradually moves camera y
-        camera.lookAt(scene.position);  // Makes camera look at the center of the galaxy
-    }
-});
 
 // Start animation
 animate();
 
-// DOM elements for webcam, output, and status, Set higher z-index to appear over galaxy
-const video = document.createElement('video');  // Creates video element
-video.id = 'webcam-feed';  // Sets ID for potential CSS styling
+/* ================ WINDOW RESIZING ================ */
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ================ CONTROL SYSTEMS ================ */
+// Mouse control (fallback)
+const mousePosition = new THREE.Vector2();
+let usingBodyTracking = false;
+
+// Sensitivity settings (adjust these to change responsiveness)
+const settings = {
+    bodyRotationSensitivity: 0.8,  // How much body movement affects rotation
+    cameraTiltSensitivity: 0.5,    // How much body movement tilts view
+    mouseRotationSensitivity: 0.5, // Mouse rotation speed
+    smoothingFactor: 0.1           // Camera movement smoothness
+};
+
+let targetCameraX = 0;
+let targetCameraY = 0;
+
+// Mouse movement handler
+window.addEventListener('mousemove', (event) => {
+    if (!usingBodyTracking) {
+        // Normalize mouse position to -1 to 1 range
+        mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        // Calculate targets based on sensitivity
+        targetCameraX = mousePosition.x * settings.cameraTiltSensitivity;
+        targetCameraY = mousePosition.y * settings.cameraTiltSensitivity;
+        targetRotation = mousePosition.x * settings.mouseRotationSensitivity;
+
+        // Smooth camera movement
+        camera.position.x += (targetCameraX - camera.position.x) * settings.smoothingFactor;
+        camera.position.y += (targetCameraY - camera.position.y) * settings.smoothingFactor;
+        camera.lookAt(scene.position);
+    }
+});
+
+/* ================ UI ELEMENTS ================ */
+// Webcam feed element
+const video = document.createElement('video');
+video.id = 'webcam-feed';
 video.width = 320;
 video.height = 240;
 video.style.position = 'absolute';
 video.style.bottom = '10px';
 video.style.right = '10px';
-video.style.opacity = '0.7';  // Makes partially transparent??
-video.style.zIndex = '10';  // Ensures it appears above galaxy
-document.body.appendChild(video);  // Adds
+video.style.opacity = '0.7';
+video.style.zIndex = '10'; // Above galaxy
+document.body.appendChild(video);
 
-const output = document.createElement('div');  // Creates element for gesture messages
-output.id = 'output';  // Sets ID
+// Instruction text
+const output = document.createElement('div');
+output.id = 'output';
 output.style.position = 'absolute';
-output.style.top = '10px';  // 10px from top
-output.style.left = '10px';  // 10px from left
-output.style.color = 'white';  // Sets text color
-output.style.fontFamily = 'Arial, sans-serif';  // Sets font
+output.style.top = '10px';
+output.style.left = '10px';
+output.style.color = 'white';
+output.style.fontFamily = 'Arial, sans-serif';
 output.style.padding = '10px';
-output.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';  // Semi-transparent background
+output.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
 output.style.borderRadius = '5px';
-output.style.zIndex = '10';  // Ensures it appears above galaxy
-document.body.appendChild(output);  // Adds
+output.style.zIndex = '10';
+document.body.appendChild(output);
 
-const statusElement = document.createElement('div');  // Creates element for tracking status
-statusElement.id = 'tracking-status';  // Sets ID
-// Similar styling to output element
+// Status display
+const statusElement = document.createElement('div');
+statusElement.id = 'tracking-status';
 statusElement.style.position = 'absolute';
-statusElement.style.top = '60px';  // Positioned below output
+statusElement.style.top = '60px';
 statusElement.style.left = '10px';
 statusElement.style.color = 'white';
 statusElement.style.fontFamily = 'Arial, sans-serif';
@@ -205,136 +332,192 @@ statusElement.style.borderRadius = '5px';
 statusElement.style.zIndex = '10';
 document.body.appendChild(statusElement);
 
-// Variables for gesture control
-let gestureDetectionLocked = false;  // Prevents instant detection
-let lastGestureTime = 0;  // Tracks when last gesture was detected
-const gestureDelay = 2000;  // 2 seconds cooldown between events
-let lastGesture = 'none';  // Tracks previous gesture
-let gestureConfirmCounter = 0;  // Counter for consistent gesture detection
-const requiredConfirmations = 5;  // Need to detect same gesture 5 times in a row for confirmation
+/* ================ GESTURE CONTROL ================ */
+// Gesture tracking variables
+let gestureDetectionLocked = false;
+let lastGestureTime = 0;
+const gestureDelay = 2000; // 2 second cooldown between gestures
+let lastGesture = 'none';
+let gestureConfirmCounter = 0;
+const requiredConfirmations = 5; // Need 5 consistent detections
 
-//Pose positions
-let prevPoseX = 0;  // Previous smoothed x position
-let prevPoseY = 0;  // Previous smoothed y position
-const poseSmoothing = 0.2;  // Lower = more smoothing
+// Pose tracking variables
+let prevPoseX = 0;
+let prevPoseY = 0;
+const poseSmoothing = 0.2; // Lower = smoother but laggier tracking
 
-// Load models
-let handModel, poseModel;  // models for hand and pose detection
+// Model references
+let handModel = null;
+let poseModel = null;
 
-// Initialize TensorFlow.js models
-async function initModels() {
+/* ================ MODEL WARM-UP ================ */
+// Prepares models by running dummy detection
+async function warmUpModels() {
+    if (!handModel || !poseModel) return;
+    
+    // Create blank canvas for warm-up
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Warm up hand model
     try {
-        // Load hand tracking model
-        handModel = await handpose.load();
-        console.log('HandPose model loaded.');
-
-        // Load body tracking model
-        poseModel = await poseDetection.createDetector(  //pose detection model
-            poseDetection.SupportedModels.MoveNet,  // Uses MoveNet model
-            { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }  // Uses lightning variant for speed
-        );
-        console.log('PoseNet model loaded.');
-
-        statusElement.textContent = 'Body and hand tracking active';  // Updates status
-        usingBodyTracking = true;  // Sets flag for body tracking
-
-        // Start tracking
-        trackUser();
-    } catch (error) {
-        console.error('Error loading models:', error);
-        statusElement.textContent = 'Error loading tracking. Using mouse control.';  // Error message
-        usingBodyTracking = false;  // Falls back to mouse control
+        await handModel.estimateHands(canvas);
+        console.log('Hand model warmed up');
+    } catch (e) {
+        console.warn('Hand model warm-up failed:', e);
+    }
+    
+    // Warm up pose model
+    try {
+        await poseModel.estimatePoses(canvas);
+        console.log('Pose model warmed up');
+    } catch (e) {
+        console.warn('Pose model warm-up failed:', e);
     }
 }
 
-// Track user's body and hands
+/* ================ MODEL INITIALIZATION ================ */
+async function initModels() {
+    try {
+        updateProgress(95);
+        
+        // Load hand tracking model
+        handModel = await handpose.load();
+        
+        // Load body tracking model (using lightweight version)
+        poseModel = await poseDetection.createDetector(
+            poseDetection.SupportedModels.MoveNet,
+            { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+        );
+        
+        // Warm up models for better initial performance
+        await warmUpModels();
+        
+        // Complete loading
+        updateProgress(100);
+        
+        // Fade out loading screen
+        loadingContainer.style.transition = 'opacity 0.5s';
+        loadingContainer.style.opacity = '0';
+        setTimeout(() => {
+            loadingContainer.style.display = 'none';
+        }, 500);
+        
+        // Start webcam if available
+        setupWebcam();
+    } catch (error) {
+        console.error('Model initialization failed:', error);
+        loadingText.textContent = 'Using mouse controls (tracking failed to load)';
+        
+        // Still hide loading screen but with message
+        setTimeout(() => {
+            loadingContainer.style.opacity = '0';
+            setTimeout(() => {
+                loadingContainer.style.display = 'none';
+            }, 500);
+        }, 2000);
+    }
+}
+
+/* ================ WEBCAM SETUP ================ */
+function setupWebcam() {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then((stream) => {
+                video.srcObject = stream;
+                video.play();
+                usingBodyTracking = true;
+                statusElement.textContent = 'Body and hand tracking active';
+                trackUser();
+            })
+            .catch((error) => {
+                console.error('Webcam error:', error);
+                statusElement.textContent = 'Using mouse control (webcam access denied)';
+                output.textContent = 'Webcam access denied. Using mouse controls.';
+            });
+    }
+}
+
+/* ================ USER TRACKING ================ */
 async function trackUser() {
-    if (!poseModel || !handModel) return;  // Exits if models aren't loaded
+    if (!poseModel || !handModel) return;
 
     try {
-        // Track body pose
-        const poses = await poseModel.estimatePoses(video);  // Get data from webcam
+        // Body pose detection
+        const poses = await poseModel.estimatePoses(video);
 
-        if (poses.length > 0) {  // If a pose is detected
-            const pose = poses[0];  // Gets the first (main) pose
-
-            // Get nose position for now, we can change it???
+        if (poses.length > 0) {
+            const pose = poses[0];
             const nose = pose.keypoints.find(k => k.name === 'nose');
 
-            if (nose && nose.score > 0.3) {  // If nose is detected > 30%
-                // Map nose x position to rotation (center of screen = 0, left = negative, right = positive)
-                // Apply smoothing filter to position
-                const rawXPos = (nose.x / video.width) * 2 - 1;  // Normalizes x position to -1 to 1
-                const rawYPos = (nose.y / video.height) * 2 - 1;  // Normalizes y position to -1 to 1
+            if (nose && nose.score > 0.3) {
+                // Normalize and smooth position
+                const rawXPos = (nose.x / video.width) * 2 - 1;
+                const rawYPos = (nose.y / video.height) * 2 - 1;
 
-                // Apply smoothing filter to reduce jitter
                 const xPos = prevPoseX + (rawXPos - prevPoseX) * poseSmoothing;
                 const yPos = prevPoseY + (rawYPos - prevPoseY) * poseSmoothing;
 
-                // Save for next frame
                 prevPoseX = xPos;
                 prevPoseY = yPos;
 
-                // Set target rotation
-                targetRotation = -xPos * settings.bodyRotationSensitivity;  // Sets rotation target based on body position
-
-                // Update camera position targets
+                // Apply to galaxy rotation and camera
+                targetRotation = -xPos * settings.bodyRotationSensitivity;
                 targetCameraX = xPos * settings.cameraTiltSensitivity;
                 targetCameraY = -yPos * settings.cameraTiltSensitivity;
 
-                // Smooth camera movement
-                camera.position.x += (targetCameraX - camera.position.x) * settings.smoothingFactor;  // Gradually moves camera x
-                camera.position.y += (targetCameraY - camera.position.y) * settings.smoothingFactor;  // Gradually moves camera y
-                camera.lookAt(scene.position);  // Makes camera look at center
+                camera.position.x += (targetCameraX - camera.position.x) * settings.smoothingFactor;
+                camera.position.y += (targetCameraY - camera.position.y) * settings.smoothingFactor;
+                camera.lookAt(scene.position);
 
                 statusElement.textContent = 'Body tracking active - Move left/right to rotate galaxy';
             }
         }
 
-        // Track hand gestures for navigation
-        if (!gestureDetectionLocked) {  // Only if not in cooldown
-            const handPredictions = await handModel.estimateHands(video);  // Gets hand data from webcam
+        // Hand gesture detection
+        if (!gestureDetectionLocked) {
+            const handPredictions = await handModel.estimateHands(video);
 
-            if (handPredictions.length > 0) {  // If hands detected
-                const landmarks = handPredictions[0].landmarks;  // Gets hand landmarks
-                let currentGesture = 'none';  // Default gesture
+            if (handPredictions.length > 0) {
+                const landmarks = handPredictions[0].landmarks;
+                let currentGesture = 'none';
 
-                // Detect gestures
-                if (isOpenHand(landmarks)) {  // Checks for open hand
-                    currentGesture = 'open';  // Sets current gesture
-                    output.textContent = 'Hold open hand to navigate to psychedelic effect';  // Updates instruction
+                if (isOpenHand(landmarks)) {
+                    currentGesture = 'open';
+                    output.textContent = 'Hold open hand to navigate to psychedelic effect';
                 } else {
-                    currentGesture = 'none';  // No recognized gesture
-                    output.textContent = 'Move body to rotate galaxy | Open/close hand to navigate';  // Default instruction
-                    gestureConfirmCounter = 0;  // Resets confirmation counter
+                    currentGesture = 'none';
+                    output.textContent = 'Move body to rotate galaxy | Open/close hand to navigate';
+                    gestureConfirmCounter = 0;
                 }
 
-                // Gesture confirmation logic, must detect same gesture multiple times in a row
-                if (currentGesture !== 'none' && currentGesture === lastGesture) {  // If same not none gesture detected again
-                    gestureConfirmCounter++;  // Increment counter
+                // Gesture confirmation logic
+                if (currentGesture !== 'none' && currentGesture === lastGesture) {
+                    gestureConfirmCounter++;
 
-                    // Visual feedback on gesture recognition progress, not rlly working tbh
+                    // Show progress
                     if (gestureConfirmCounter > 0) {
-                        output.textContent += ` (${gestureConfirmCounter}/${requiredConfirmations})`;  // Shows progress
+                        output.textContent += ` (${gestureConfirmCounter}/${requiredConfirmations})`;
                     }
 
-                    // Only navigate after confirmed gesture
-                    if (gestureConfirmCounter >= requiredConfirmations) {  // If gesture confirmed enough times
-                        gestureDetectionLocked = true;  // Locks detection to prevent instant triggers
-                        lastGestureTime = Date.now();  // Records time for cooldown
+                    // Trigger action after enough confirmations
+                    if (gestureConfirmCounter >= requiredConfirmations) {
+                        gestureDetectionLocked = true;
+                        lastGestureTime = Date.now();
 
-                        // Navigate based on confirmed gesture
-                        if (currentGesture === 'open') {  // If open hand gesture
+                        if (currentGesture === 'open') {
                             setTimeout(() => {
-                                // Randomly navigate to one of the pages
-                                const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];  // Possible destinations
-                                const randomPage = pages[Math.floor(Math.random() * pages.length)];  // Picks random page
-                                window.location.href = randomPage;  // Navigates to that page
-                            }, 6000);  // 6-second delay
+                                const pages = ['particle6.html', 'particle4.html', 'particle3.html', 'particle1.html'];
+                                const randomPage = pages[Math.floor(Math.random() * pages.length)];
+                                window.location.href = randomPage;
+                            }, 6000);
                         }
                     }
                 } else {
-                    // Reset counter if gesture changed
                     if (currentGesture !== lastGesture) {
                         gestureConfirmCounter = 0;
                     }
@@ -342,76 +525,67 @@ async function trackUser() {
 
                 lastGesture = currentGesture;
             } else {
-                output.textContent = 'Move body to rotate galaxy | Open/close hand to navigate';  // Default instruction
-                gestureConfirmCounter = 0;  // Resets counter when no hands detected
+                output.textContent = 'Move body to rotate galaxy | Open/close hand to navigate';
+                gestureConfirmCounter = 0;
             }
         } else {
-
+            // Check if gesture lock should expire
             const currentTime = Date.now();
             if (currentTime - lastGestureTime > gestureDelay) {
                 gestureDetectionLocked = false;
             }
         }
     } catch (error) {
-        console.error('Tracking error:', error);  // Logs errors
+        console.error('Tracking error:', error);
     }
 
     // Continue tracking
     requestAnimationFrame(trackUser);
 }
 
-// Gesture Detection Functions
+/* ================ GESTURE DETECTION ================ */
 function isOpenHand(landmarks) {
+    // Get finger tip positions
     const thumbTip = landmarks[4];
     const indexTip = landmarks[8];
     const middleTip = landmarks[12];
     const ringTip = landmarks[16];
     const pinkyTip = landmarks[20];
-
-    // Calculate distances from fingertips to the wrist
     const wrist = landmarks[0];
+
+    // Calculate distances from fingertips to wrist
     const thumbDistance = Math.hypot(thumbTip[0] - wrist[0], thumbTip[1] - wrist[1]);
     const indexDistance = Math.hypot(indexTip[0] - wrist[0], indexTip[1] - wrist[1]);
     const middleDistance = Math.hypot(middleTip[0] - wrist[0], middleTip[1] - wrist[1]);
     const ringDistance = Math.hypot(ringTip[0] - wrist[0], ringTip[1] - wrist[1]);
     const pinkyDistance = Math.hypot(pinkyTip[0] - wrist[0], pinkyTip[1] - wrist[1]);
 
-    // Thresholds for open palm, can be adjusted
-    const openThreshold = 100;
+    // Threshold for considering a finger "extended"
+    const openThreshold = 100; // Adjust this for sensitivity
 
-    // Check if most fingers are extended (open palm)
+    // Count how many fingers are extended
     const extendedFingers = [
         thumbDistance > openThreshold,
         indexDistance > openThreshold,
         middleDistance > openThreshold,
         ringDistance > openThreshold,
         pinkyDistance > openThreshold,
-    ].filter(Boolean).length;  // Count how many fingers are extended
+    ].filter(Boolean).length;
 
-    // If at least 3 fingers are extended, consider the palm open
-    return extendedFingers >= 3;  // Returns true if 3+ fingers extended
+    // Consider hand open if at least 3 fingers extended
+    return extendedFingers >= 3;
 }
 
-// Access the webcam
-if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {  // Checks if webcam API available
-    navigator.mediaDevices.getUserMedia({ video: true })  // Requests webcam access
-        .then((stream) => {
-            video.srcObject = stream;  // Sets webcam stream as video source
-            video.play();  // Starts playing webcam feed
-            initModels();  // Loads models after webcam starts
-        })
-        .catch((error) => {
-            console.error('Error accessing the webcam:', error);  // Logs error
-            statusElement.textContent = 'Using mouse control (webcam access denied)';  // Updates status
-            output.textContent = 'Webcam access denied. Using mouse controls.';  // Updates instructions
-        });
-} else {
-    console.error('getUserMedia is not supported in this browser.');  // Logs browser compatibility error
-    statusElement.textContent = 'Using mouse control (webcam not supported)';  // Updates status
-    output.textContent = 'Your browser does not support webcam access. Using mouse controls.';  // Updates instructions
-}
+/* ================ INITIALIZATION ================ */
+// Check every 100ms if all dependencies are loaded
+const checkReady = setInterval(() => {
+    if (tfLoaded && handposeLoaded && poseDetectionLoaded && typeof THREE !== 'undefined') {
+        clearInterval(checkReady);
+        initModels();
+    }
+}, 100);
 
-// Add CSS for fill purposes, could be in a stylesheet but whatever for now
+/* ================ GLOBAL STYLES ================ */
 const style = document.createElement('style');
 style.textContent = `
   body, html {
@@ -423,4 +597,4 @@ style.textContent = `
     background: #000;
   }
 `;
-document.head.appendChild(style); 
+document.head.appendChild(style);
