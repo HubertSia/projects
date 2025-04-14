@@ -28,7 +28,7 @@ loadingText.style.marginBottom = '20px';
 const progressBar = document.createElement('div');
 progressBar.style.width = '300px';
 progressBar.style.height = '10px';
-progressBar.style.backgroundColor = '#333'; // Background of progress bar
+progressBar.style.backgroundColor = '#ffad33'; // Background of progress bar
 progressBar.style.borderRadius = '5px';
 
 // Progress fill element (green bar)
