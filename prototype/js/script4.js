@@ -613,7 +613,7 @@ async function detectGestures() {
         if (currentGestureState === 'open') {
             console.log('Open palm detected - starting 5 second timer');
             openHandTimer = setTimeout(() => {
-                const pages = ['particle6.html', 'particle4.html', 'particle3.html'];
+                const pages = ['particle6.html', 'particle3.html'];
                 const randomPage = pages[Math.floor(Math.random() * pages.length)];
                 window.location.href = randomPage;
             }, OPEN_HAND_DURATION);
