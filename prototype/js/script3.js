@@ -17,6 +17,11 @@ document.body.appendChild(loadingIndicator);
 let scene, camera, renderer, particles, videoTexture, videoCanvas, videoContext, positions;
 let video, model;
 
+// ===== NEW COLOR VARIABLES =====
+let colors; // Color attribute for particles
+const CENTER_COLOR = new THREE.Color(0xff5500); // Orange
+const OUTER_COLOR = new THREE.Color(0x0066ff); // Blue
+
 // ===== GESTURE TIMING VARIABLES =====
 let openHandTimer = null;
 let noHandsTimer = null;
@@ -173,7 +178,7 @@ async function detectGestures() {
     }
 }
 
-// ===== ORIGINAL VISUAL FUNCTIONS (UNCHANGED) =====
+// ===== MODIFIED VISUAL FUNCTIONS WITH COLOR GRADIENT =====
 function init() {
     // === ORIGINAL VISUAL SETUP ===
     scene = new THREE.Scene();
@@ -207,6 +212,7 @@ function init() {
     const geometry = new THREE.BufferGeometry();
     positions = new Float32Array(particleCount * 3);
     const uvs = new Float32Array(particleCount * 2);
+    colors = new Float32Array(particleCount * 3); // Add color attribute
 
     for (let i = 0; i < particleCount; i++) {
         const radius = Math.random() * 10;
@@ -217,22 +223,50 @@ function init() {
 
         uvs[i * 2] = Math.random();
         uvs[i * 2 + 1] = Math.random();
+        
+        // Initialize colors based on distance from center
+        updateParticleColor(i);
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3)); // Add color attribute
     geometry.computeBoundingSphere();
 
-    // Original particle material settings
+    // Modified particle material with vertex colors
     const material = new THREE.PointsMaterial({
-        size: 0.08, // Original size
+        size: 0.12, // Slightly larger to see glow better
         map: videoTexture,
         transparent: true,
+        vertexColors: true, // Enable vertex colors
+        blending: THREE.AdditiveBlending, // Add glow effect
+        depthWrite: false // Improve transparency handling
     });
 
     particles = new THREE.Points(geometry, material);
     scene.add(particles);
     animate();
+}
+
+// New function to update particle colors based on distance from center
+function updateParticleColor(index) {
+    const x = positions[index * 3];
+    const y = positions[index * 3 + 1];
+    const z = positions[index * 3 + 2];
+    
+    // Calculate distance from center (0,0,0)
+    const distance = Math.sqrt(x*x + y*y + z*z);
+    
+    // Normalize distance (0 to 1) based on maximum particle radius (10)
+    const normalizedDistance = Math.min(distance / 10, 1.0);
+    
+    // Create color based on distance (orange at center, blue at edge)
+    const color = new THREE.Color().copy(CENTER_COLOR).lerp(OUTER_COLOR, normalizedDistance);
+    
+    // Set color in the buffer
+    colors[index * 3] = color.r;
+    colors[index * 3 + 1] = color.g;
+    colors[index * 3 + 2] = color.b;
 }
 
 function updateParticles(time) {
@@ -269,9 +303,13 @@ function updateParticles(time) {
             const brightness = (data[brightnessIndex] + data[brightnessIndex + 1] + data[brightnessIndex + 2]) / 3 / 255;
             positions[i * 3 + 1] = (brightness * 10 - 5) || 0; // Original brightness multiplier
         }
+        
+        // Update color based on new position
+        updateParticleColor(i);
     }
 
     particles.geometry.attributes.position.needsUpdate = true;
+    particles.geometry.attributes.color.needsUpdate = true; // Update color attribute
     particles.geometry.computeBoundingSphere();
 }
 

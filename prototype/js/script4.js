@@ -297,33 +297,33 @@ document.body.appendChild(loadingIndicator);
  * Particle class to define the behavior and appearance of each particle
  */
 class Particle {
-    constructor(x, y) {
-        this.baseX = x;
-        this.baseY = y;
-        this.x = x;
-        this.y = y;
-        this.waveOffset = Math.random() * Math.PI * 2;
-        this.gradientPosition = y / canvas.height;
-
-        // Assign three sizes randomly
-        const sizeCategory = Math.floor(Math.random() * 3);
-        if (sizeCategory === 0) {
-            this.radius = 3;
-        } else if (sizeCategory === 1) {
-            this.radius = 6;
-        } else {
-            this.radius = 9;
+        constructor(x, y) {
+            this.baseX = x;
+            this.baseY = y;
+            this.x = x;
+            this.y = y;
+            this.waveOffset = Math.random() * Math.PI * 2;
+            this.gradientPosition = y / canvas.height;
+    
+            // Assign three sizes randomly
+            const sizeCategory = Math.floor(Math.random() * 3);
+            if (sizeCategory === 0) {
+                this.radius = 3;
+            } else if (sizeCategory === 1) {
+                this.radius = 6;
+            } else {
+                this.radius = 9;
+            }
+    
+            this.baseOpacity = 0.6 + Math.random() * 0.4;
+            this.velocity = { x: 0, y: 0 };
+            this.acceleration = { x: 0, y: 0 };
+            this.mass = this.radius;
+            this.friction = 0.92;
+            this.maxSpeed = 15;
+            this.attracted = false;
+            this.motionStrength = 0;
         }
-
-        this.baseOpacity = 0.6 + Math.random() * 0.4;
-        this.velocity = { x: 0, y: 0 };
-        this.acceleration = { x: 0, y: 0 };
-        this.mass = this.radius;
-        this.friction = 0.92;
-        this.maxSpeed = 15;
-        this.attracted = false;
-        this.motionStrength = 0;
-    }
 
     applyForce(forceX, forceY, motionValue) {
         const fx = forceX / this.mass;
@@ -389,6 +389,9 @@ class Particle {
             Math.min(1, this.baseOpacity + this.motionStrength * 0.4) :
             this.baseOpacity;
 
+        // Set the composite operation to make particles brighter when they overlap
+        ctx.globalCompositeOperation = 'lighter';
+
         gradient.addColorStop(0, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${finalOpacity})`);
         gradient.addColorStop(0.6, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${finalOpacity * 0.6})`);
         gradient.addColorStop(1, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0)`);
@@ -397,14 +400,31 @@ class Particle {
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.currentRadius || this.radius, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Reset composite operation for other rendering
+        ctx.globalCompositeOperation = 'source-over';
     }
 }
 
 function getGradientColor(position) {
     position = Math.max(0, Math.min(1, position));
-    const r = Math.floor(255 - position * 255);
-    const g = Math.floor(165 - position * 165);
-    const b = Math.floor(position * 255);
+    
+    // Convert hex colors to RGB components
+    // Inside color: 0xff6030 (orange)
+    const insideR = 255;
+    const insideG = 66;
+    const insideB = 48;
+    
+    // Outside color: 0x1b3984 (blue)
+    const outsideR = 27;
+    const outsideG = 57;
+    const outsideB = 132;
+    
+    // Linear interpolation between the two colors
+    const r = Math.floor(insideR + position * (outsideR - insideR));
+    const g = Math.floor(insideG + position * (outsideG - insideG));
+    const b = Math.floor(insideB + position * (outsideB - insideB));
+    
     return `rgb(${r}, ${g}, ${b})`;
 }
 
