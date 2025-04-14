@@ -16,11 +16,18 @@ class Particle {
     }
 
     draw(ctx) {
+        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+        gradient.addColorStop(0, 'rgba(0, 150, 255, 1)');    // bright blue center
+        gradient.addColorStop(0.7, 'rgba(0, 150, 255, 0.6)'); // still blue at 70%
+        gradient.addColorStop(1, 'rgba(255, 255, 0, 0)');     // yellow at the edge, faded
+    
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';  // White with 80% opacity
+        ctx.fillStyle = gradient;
         ctx.fill();
     }
+    
+    
 }
 
 // ===== GLOBAL VARIABLES =====
@@ -205,12 +212,14 @@ function navigateToRandomPage() {
     
     const pages = ['particle4.html', 'particle3.html'];  // Add/remove pages here
     window.location.href = pages[Math.floor(Math.random() * pages.length)];
-                        console.log('Open palm detected - starting 5 second timer');
+      console.log('Open palm detected - starting 5 second timer');
 
 }
 
 function navigateToIndex() {
     window.location.href = 'index.html';  // Change to your homepage path
+    console.log('Open palm detected - starting 5 second timer');
+
 }
 
 // ===== CAMERA SETUP =====
@@ -269,7 +278,8 @@ async function estimatePose() {
         });
         
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         drawKeypoints(pose.keypoints);
         updateParticles();
         
@@ -317,7 +327,10 @@ async function init() {
         // Fallback animation if models fail
         const fallbackAnimate = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
             createParticles(
                 Math.random() * canvas.width,
                 Math.random() * canvas.height,
