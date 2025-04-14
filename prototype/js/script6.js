@@ -2,12 +2,15 @@
  * This class represents a single particle for visual effects
  */
 class Particle {
-    constructor(x, y) {
+    constructor(x, y, jointId) {
         this.x = x;          // X position
         this.y = y;          // Y position
         this.size = Math.random() * 5 + 2;  // Random size (2-7 pixels)
         this.speedX = Math.random() * 2 - 1; // Random horizontal speed (-1 to 1)
         this.speedY = Math.random() * 2 - 1; // Random vertical speed (-1 to 1)
+        this.jointId = jointId; // ID to group particles from same joint
+        this.originalX = x;  // Store original position to calculate distance from center
+        this.originalY = y;
     }
 
     update() {
@@ -20,14 +23,12 @@ class Particle {
         gradient.addColorStop(0, 'rgba(0, 150, 255, 1)');    // bright blue center
         gradient.addColorStop(0.7, 'rgba(0, 150, 255, 0.6)'); // still blue at 70%
         gradient.addColorStop(1, 'rgba(255, 255, 0, 0)');     // yellow at the edge, faded
-    
+
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fillStyle = gradient;
         ctx.fill();
     }
-    
-    
 }
 
 // ===== GLOBAL VARIABLES =====
@@ -36,6 +37,7 @@ let handposeModel;        // Handpose model (finger tracking)
 let poseNetModel;         // PoseNet model (body tracking)
 let video;                // Webcam video element
 let canvas, ctx;          // Canvas and its 2D context
+let jointClusters = {};   // Object to track active joint clusters
 
 // ===== GESTURE TIMING CONTROL =====
 let openPalmTime = 0;     // Tracks duration of open palm gesture (ms)
@@ -119,27 +121,91 @@ async function warmUpModels() {
 
 // ===== PARTICLE SYSTEM =====
 /**
- * Creates new particles at (x,y).
+ * Creates new particles at (x,y) for a specific joint.
  * @param {number} x - X position
  * @param {number} y - Y position
+ * @param {string} jointId - Unique ID for the joint
  * @param {number} count - Number of particles (default: 5)
  */
-function createParticles(x, y, count = 5) {
+function createParticles(x, y, jointId, count = 5) {
+    // Track this joint cluster
+    if (!jointClusters[jointId]) {
+        jointClusters[jointId] = {
+            centerX: x,
+            centerY: y,
+            lastUpdated: Date.now(),
+            radius: 50  // Initial radius of the cluster gradient
+        };
+    } else {
+        // Update existing cluster
+        jointClusters[jointId].centerX = x;
+        jointClusters[jointId].centerY = y;
+        jointClusters[jointId].lastUpdated = Date.now();
+    }
+
     for (let i = 0; i < count; i++) {
-        particles.push(new Particle(x, y));
+        particles.push(new Particle(x, y, jointId));
     }
 }
 
 /**
- * Updates and draws all particles.
- * Removes particles smaller than 0.2px.
+ * Updates and draws all particles with cluster gradients.
+ * Removes particles smaller than 0.2px and old clusters.
  */
 function updateParticles() {
+    // First remove old joint clusters (more than 2 seconds old)
+    const now = Date.now();
+    Object.keys(jointClusters).forEach(jointId => {
+        if (now - jointClusters[jointId].lastUpdated > 2000) {
+            delete jointClusters[jointId];
+        }
+    });
+    
+    // Group particles by jointId
+    const clusterParticles = {};
+    particles.forEach(particle => {
+        if (!clusterParticles[particle.jointId]) {
+            clusterParticles[particle.jointId] = [];
+        }
+        clusterParticles[particle.jointId].push(particle);
+    });
+    
+    // For each active cluster, draw the gradient first
+    Object.keys(jointClusters).forEach(jointId => {
+        const cluster = jointClusters[jointId];
+        
+        // Create orange to blue radial gradient for the entire cluster
+        const gradient = ctx.createRadialGradient(
+            cluster.centerX, cluster.centerY, 0, 
+            cluster.centerX, cluster.centerY, cluster.radius
+        );
+        gradient.addColorStop(0, 'rgba(255, 117, 67, 0.83)');  // Orange at center
+        gradient.addColorStop(1, 'rgba(198, 54, 255, 0.16)');  // Faded blue at edge
+        
+        // Draw the cluster gradient
+        ctx.beginPath();
+        ctx.arc(cluster.centerX, cluster.centerY, cluster.radius, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        
+        // Slowly expand the cluster radius
+        cluster.radius += 1;
+    });
+    
+    // Update and draw individual particles
     particles.forEach((particle, index) => {
         particle.update();
-        particle.draw(ctx);
-        if (particle.size > 0.2) particle.size -= 0.05;  // Shrink over time
-        if (particle.size <= 0.2) particles.splice(index, 1);  // Remove tiny particles
+        
+        // If the cluster still exists, draw the particle
+        if (jointClusters[particle.jointId]) {
+            particle.draw(ctx);
+        }
+        
+        // Shrink particles over time
+        if (particle.size > 0.2) particle.size -= 0.05;
+        
+        // Remove tiny particles
+        if (particle.size <= 0.2) particles.splice(index, 1);
     });
 }
 
@@ -179,7 +245,6 @@ async function detectGestures() {
                 // Navigate after 5s of open palm
                 if (openPalmTime >= GESTURE_HOLD_DURATION) {
                     navigateToRandomPage();
-
                 }
             } else {
                 closedPalmTime += DETECTION_INTERVAL;
@@ -199,7 +264,6 @@ async function detectGestures() {
             if (now - lastHandDetection >= INACTIVITY_TIMEOUT) {
                 navigateToIndex();
                 console.log('No hands detected - starting 1 minute timer');
-                
             }
         }
     } catch (error) {
@@ -209,17 +273,14 @@ async function detectGestures() {
 
 // ===== NAVIGATION =====
 function navigateToRandomPage() {
-    
     const pages = ['particle4.html', 'particle3.html'];  // Add/remove pages here
     window.location.href = pages[Math.floor(Math.random() * pages.length)];
-      console.log('Open palm detected - starting 5 second timer');
-
+    console.log('Open palm detected - starting 5 second timer');
 }
 
 function navigateToIndex() {
     window.location.href = 'index.html';  // Change to your homepage path
     console.log('Open palm detected - starting 5 second timer');
-
 }
 
 // ===== CAMERA SETUP =====
@@ -254,13 +315,19 @@ async function setupCamera() {
  * @param {Array} keypoints - PoseNet keypoints array
  */
 function drawKeypoints(keypoints) {
-    keypoints.forEach(keypoint => {
+    keypoints.forEach((keypoint, index) => {
         if (keypoint.score > 0.5) {  // Only high-confidence keypoints
+            // Create a unique ID for this keypoint
+            const jointId = `joint_${keypoint.part}_${index}`;
+            
+            // Draw the keypoint
             ctx.beginPath();
             ctx.arc(keypoint.position.x, keypoint.position.y, 5, 0, 2 * Math.PI);
             ctx.fillStyle = 'red';
             ctx.fill();
-            createParticles(keypoint.position.x, keypoint.position.y);  // Spawn particles
+            
+            // Spawn particles with the joint ID
+            createParticles(keypoint.position.x, keypoint.position.y, jointId);
         }
     });
 }
@@ -307,6 +374,7 @@ async function init() {
             createParticles(
                 Math.random() * canvas.width,
                 Math.random() * canvas.height,
+                `fallback_${Date.now()}`,
                 1
             );
             updateParticles();
@@ -334,6 +402,7 @@ async function init() {
             createParticles(
                 Math.random() * canvas.width,
                 Math.random() * canvas.height,
+                `fallback_${Date.now()}`,
                 2
             );
             updateParticles();
