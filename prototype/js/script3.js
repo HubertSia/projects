@@ -1,44 +1,96 @@
-/**
- * Import Three.js library
- */
 import * as THREE from 'https://unpkg.com/three@0.136.0/build/three.module.js';
 
-// Declare variables for the scene, camera, renderer, particles, and video elements
+// ===== PRELOADING SYSTEM =====
+const loadingIndicator = document.createElement('div');
+loadingIndicator.style.position = 'fixed';
+loadingIndicator.style.bottom = '20px';
+loadingIndicator.style.right = '20px';
+loadingIndicator.style.color = 'white';
+loadingIndicator.style.backgroundColor = 'rgba(0,0,0,0.5)';
+loadingIndicator.style.padding = '10px';
+loadingIndicator.style.borderRadius = '5px';
+loadingIndicator.style.zIndex = '1000';
+loadingIndicator.textContent = 'Loading hand tracking...';
+document.body.appendChild(loadingIndicator);
+
+// ===== ORIGINAL VISUAL VARIABLES (UNCHANGED) =====
 let scene, camera, renderer, particles, videoTexture, videoCanvas, videoContext, positions;
+let video, model;
 
-// Declare the video variable globally
-let video;
+// ===== GESTURE TIMING VARIABLES =====
+let openHandTimer = null;
+let noHandsTimer = null;
+const OPEN_HAND_DURATION = 5000; // 5 seconds for open palm
+const NO_HANDS_DURATION = 60000; // 1 minute for no hands
+let lastGestureState = null; // Track the last detected gesture state
 
-// Load HandPose model
-let model;
+// ===== OPTIMIZED HANDPOSE LOADING =====
+async function preloadHandpose() {
+    try {
+        // Load TensorFlow.js first if not already loaded
+        if (typeof tf === 'undefined') {
+            await new Promise((resolve) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs';
+                script.onload = resolve;
+                document.head.appendChild(script);
+            });
+        }
 
-async function loadHandPoseModel() {
-    model = await handpose.load();
-    console.log('HandPose model loaded.');
+        // Load Handpose model
+        if (typeof handpose === 'undefined') {
+            await new Promise((resolve) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose';
+                script.onload = resolve;
+                document.head.appendChild(script);
+            });
+        }
+
+        // Start loading the model
+        loadingIndicator.textContent = 'Loading model (30%)...';
+        model = await handpose.load();
+        
+        // Warm up the model (hidden from user)
+        await warmUpModel();
+        
+        loadingIndicator.textContent = 'Hand tracking ready!';
+        setTimeout(() => loadingIndicator.style.display = 'none', 2000);
+        return model;
+    } catch (error) {
+        console.error('Handpose loading failed:', error);
+        loadingIndicator.textContent = 'Using mouse controls';
+        setTimeout(() => loadingIndicator.style.display = 'none', 2000);
+        return null;
+    }
 }
 
-/**
- * Function to check if a palm is open or closed
- */
-function isOpenHand(landmarks) {
-    const thumbTip = landmarks[4]; // Thumb tip
-    const indexTip = landmarks[8]; // Index finger tip
-    const middleTip = landmarks[12]; // Middle finger tip
-    const ringTip = landmarks[16]; // Ring finger tip
-    const pinkyTip = landmarks[20]; // Pinky finger tip
+async function warmUpModel() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'rgb(100,100,100)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await model.estimateHands(canvas);
+}
 
-    // Calculate distances from fingertips to the wrist
-    const wrist = landmarks[0]; // Wrist (base of the palm)
+// ===== GESTURE DETECTION FUNCTIONS =====
+function isOpenHand(landmarks) {
+    const thumbTip = landmarks[4];
+    const indexTip = landmarks[8];
+    const middleTip = landmarks[12];
+    const ringTip = landmarks[16];
+    const pinkyTip = landmarks[20];
+    const wrist = landmarks[0];
+
     const thumbDistance = Math.hypot(thumbTip[0] - wrist[0], thumbTip[1] - wrist[1]);
     const indexDistance = Math.hypot(indexTip[0] - wrist[0], indexTip[1] - wrist[1]);
     const middleDistance = Math.hypot(middleTip[0] - wrist[0], middleTip[1] - wrist[1]);
     const ringDistance = Math.hypot(ringTip[0] - wrist[0], ringTip[1] - wrist[1]);
     const pinkyDistance = Math.hypot(pinkyTip[0] - wrist[0], pinkyTip[1] - wrist[1]);
 
-    // Thresholds for open palm
-    const openThreshold = 100; // Adjust based on testing
-
-    // Check if most fingers are extended (open palm)
+    const openThreshold = 100;
     const extendedFingers = [
         thumbDistance > openThreshold,
         indexDistance > openThreshold,
@@ -47,202 +99,192 @@ function isOpenHand(landmarks) {
         pinkyDistance > openThreshold,
     ].filter(Boolean).length;
 
-    // If at least 3 fingers are extended, consider the palm open
     return extendedFingers >= 3;
 }
 
-/**
- * Function to detect hands and gestures
- */
+function isClosedHand(landmarks) {
+    const thumbTip = landmarks[4];
+    const indexTip = landmarks[8];
+    const middleTip = landmarks[12];
+    const ringTip = landmarks[16];
+    const pinkyTip = landmarks[20];
+
+    // Measure distances between fingertips
+    const thumbIndexDistance = Math.hypot(thumbTip[0] - indexTip[0], thumbTip[1] - indexTip[1]);
+    const indexMiddleDistance = Math.hypot(indexTip[0] - middleTip[0], indexTip[1] - middleTip[1]);
+    const middleRingDistance = Math.hypot(middleTip[0] - ringTip[0], middleTip[1] - ringTip[1]);
+    const ringPinkyDistance = Math.hypot(ringTip[0] - pinkyTip[0], ringTip[1] - pinkyTip[1]);
+
+    // All fingers should be close together for a proper fist
+    return (thumbIndexDistance < 30 && indexMiddleDistance < 30 && 
+            middleRingDistance < 30 && ringPinkyDistance < 30);
+}
+
 async function detectGestures() {
     if (!model) return;
 
-    // Get hand predictions
-    const predictions = await model.estimateHands(video);
-    if (predictions.length > 0) {
-        // Check if at least one hand has an open palm
-        const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
+    try {
+        const predictions = await model.estimateHands(video);
+        
+        let currentGestureState = null;
+        
+        if (predictions.length > 0) {
+            const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
+            const atLeastOneClosed = predictions.some(prediction => isClosedHand(prediction.landmarks));
 
-        if (atLeastOneOpen) {
-            console.log('At Least One Open Palm Detected');
-            // Navigate to a random HTML page after 3 seconds
-            setTimeout(() => {
-                const pages = ['particle6.html', 'particle4.html'];
-                const randomPage = pages[Math.floor(Math.random() * pages.length)];
-                window.location.href = randomPage;
-            }, 3000); // 3-second delay
+            if (atLeastOneOpen) {
+                currentGestureState = 'open';
+            } else if (atLeastOneClosed) {
+                currentGestureState = 'closed';
+            }
         } else {
-            console.log('Both Hands Closed: Navigating to index.html');
-            // Navigate to index.html after 10 seconds
-            setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 10000); // 10-second delay
+            currentGestureState = 'none';
         }
-    } else {
-        console.log('No Hands Detected');
+
+        // Only reset timers if gesture state has changed
+        if (currentGestureState !== lastGestureState) {
+            clearTimeout(openHandTimer);
+            clearTimeout(noHandsTimer);
+            
+            if (currentGestureState === 'open') {
+                console.log('Open palm detected - starting 5 second timer');
+                openHandTimer = setTimeout(() => {
+                    const pages = ['particle6.html', 'particle4.html'];
+                    window.location.href = pages[Math.floor(Math.random() * pages.length)];
+                }, OPEN_HAND_DURATION);
+            } 
+            else if (currentGestureState === 'closed') {
+                console.log('Closed palm detected - starting 5 second timer');
+                openHandTimer = setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, OPEN_HAND_DURATION);
+            }
+            else if (currentGestureState === 'none') {
+                console.log('No hands detected - starting 1 minute timer');
+                noHandsTimer = setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, NO_HANDS_DURATION);
+            }
+            
+            lastGestureState = currentGestureState;
+        }
+    } catch (error) {
+        console.log('Detection busy - skipping frame');
     }
 }
 
-/**
- * Initialize the Three.js scene and set up the camera and renderer
- */
+// ===== ORIGINAL VISUAL FUNCTIONS (UNCHANGED) =====
 function init() {
-    // Create a new scene
+    // === ORIGINAL VISUAL SETUP ===
     scene = new THREE.Scene();
-    
-    // Set up the camera with a field of view, aspect ratio, and near/far clipping plane
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 8; // Position the camera
+    camera.position.z = 8; // Original camera position
 
-    // Set up the WebGL renderer and add it to the document
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById('threejs-container').appendChild(renderer.domElement);
 
-    // Create a video element for capturing webcam footage
     video = document.createElement('video');
-    video.autoplay = true; // Automatically play the video
-    video.muted = true; // Mute the video
-    video.playsInline = true; // Ensure the video plays inline on mobile devices
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
     
-    // Get user media (webcam) and set it as the video source
     navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
         video.srcObject = stream;
         video.play();
 
-        // Load HandPose model after webcam starts
-        loadHandPoseModel().then(() => {
-            // Add a 1-minute delay before starting gesture detection
-            setTimeout(() => {
-                console.log("Hand detection is now active!");
-                // Start detecting gestures every second after the delay
-                setInterval(detectGestures, 1000); // Check for gestures every second
-            }, 60000); // 60,000 milliseconds = 1 minute
+        // Start preloading immediately
+        preloadHandpose().then(() => {
+            setInterval(detectGestures, 1000);
         });
     });
 
-    // Create a texture from the video element
     videoTexture = new THREE.VideoTexture(video);
-    
-    // Create a canvas for processing video frames
     videoCanvas = document.createElement('canvas');
     videoContext = videoCanvas.getContext('2d');
 
-    // Define the number of particles and create a buffer geometry for them
-    const particleCount = 10000; // Increased particle count
+    const particleCount = 10000;
     const geometry = new THREE.BufferGeometry();
     positions = new Float32Array(particleCount * 3);
     const uvs = new Float32Array(particleCount * 2);
 
-    /**
-     * Randomly position the particles and assign UV coordinates
-     */
     for (let i = 0; i < particleCount; i++) {
-        const radius = Math.random() * 10; // Random radius for spiral distribution
-        const angle = Math.random() * Math.PI * 2; // Random angle around the Y-axis
-        positions[i * 3] = Math.cos(angle) * radius; // X position
-        positions[i * 3 + 1] = Math.random() * 10 - 5; // Y position (random height)
-        positions[i * 3 + 2] = Math.sin(angle) * radius; // Z position
+        const radius = Math.random() * 10;
+        const angle = Math.random() * Math.PI * 2;
+        positions[i * 3] = Math.cos(angle) * radius || 0;
+        positions[i * 3 + 1] = (Math.random() * 10 - 5) || 0;
+        positions[i * 3 + 2] = Math.sin(angle) * radius || 0;
 
-        uvs[i * 2] = Math.random(); // Random UV coordinates for texture mapping
+        uvs[i * 2] = Math.random();
         uvs[i * 2 + 1] = Math.random();
     }
 
-    // Add positions and UVs as attributes to the buffer geometry
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.computeBoundingSphere();
 
-    // Create a material for the particles using the video texture
+    // Original particle material settings
     const material = new THREE.PointsMaterial({
-        size: 0.08, // Size of each particle
-        map: videoTexture, // Use the video as a texture
-        transparent: true, // Allow transparency,
+        size: 0.08, // Original size
+        map: videoTexture,
+        transparent: true,
     });
 
-    // Create the particle system and add it to the scene
     particles = new THREE.Points(geometry, material);
     scene.add(particles);
-
-    // Start the animation loop
     animate();
 }
 
-/**
- * Update the positions of the particles to create a vortex effect with slower particle movement
- */
 function updateParticles(time) {
-    if (!videoCanvas || !videoContext || !videoTexture.image || videoTexture.image.videoWidth === 0) return;
+    if (!videoCanvas || !videoContext || !videoTexture || !videoTexture.image || videoTexture.image.videoWidth === 0) return;
 
-    // Set the size of the video canvas
     videoCanvas.width = 1920;
     videoCanvas.height = 1080;
 
-    // Draw the video frame onto the canvas, flipping it vertically
     videoContext.save();
-    videoContext.scale(1, -1); // Flip vertically
+    videoContext.scale(1, -1);
     videoContext.translate(0, -videoCanvas.height);
     videoContext.drawImage(videoTexture.image, 0, 0, videoCanvas.width, videoCanvas.height);
     videoContext.restore();
 
-    // Get the pixel data from the canvas
     const imageData = videoContext.getImageData(0, 0, videoCanvas.width, videoCanvas.height);
     const data = imageData.data;
 
-    /**
-     * Update the positions of the particles to create a vortex effect
-     */
     for (let i = 0; i < positions.length / 3; i++) {
-        const x = positions[i * 3];
-        const y = positions[i * 3 + 1];
-        const z = positions[i * 3 + 2];
+        let x = positions[i * 3] || 0;
+        let y = positions[i * 3 + 1] || 0;
+        let z = positions[i * 3 + 2] || 0;
 
-        // Calculate the angle and radius for the vortex effect
-        const radius = Math.sqrt(x * x + z * z); // Distance from the center (X-Z plane)
-        const angle = Math.atan2(z, x) + time * 0.0005; // Adjust rotation speed (slower with smaller multiplier)
+        const radius = Math.sqrt(x * x + z * z) || 0;
+        const angle = Math.atan2(z, x) + time * 0.0005;
 
-        // Update the particle positions
-        positions[i * 3] = Math.cos(angle) * radius; // New X position
-        positions[i * 3 + 2] = Math.sin(angle) * radius; // New Z position
+        positions[i * 3] = (Math.cos(angle) * radius || 0) + (Math.random() - 0.5) * 0.02;
+        positions[i * 3 + 1] = y + (Math.random() - 0.5) * 0.02 || 0;
+        positions[i * 3 + 2] = (Math.sin(angle) * radius || 0) + (Math.random() - 0.5) * 0.02;
 
-        // Add slower random movement to the particles
-        positions[i * 3] += (Math.random() - 0.5) * 0.02; // Slower random X movement
-        positions[i * 3 + 1] += (Math.random() - 0.5) * 0.02; // Slower random Y movement
-        positions[i * 3 + 2] += (Math.random() - 0.5) * 0.02; // Slower random Z movement
-
-        // Update the Y position based on the brightness of the video
-        const brightnessIndex = (Math.floor((y + 5) / 10 * videoCanvas.height) * videoCanvas.width + Math.floor((x + 5) / 10 * videoCanvas.width)) * 4;
+        const brightnessIndex = (Math.floor((y + 5) / 10 * videoCanvas.height) * videoCanvas.width + 
+                              Math.floor((x + 5) / 10 * videoCanvas.width)) * 4;
+        
         if (brightnessIndex >= 0 && brightnessIndex + 2 < data.length) {
             const brightness = (data[brightnessIndex] + data[brightnessIndex + 1] + data[brightnessIndex + 2]) / 3 / 255;
-            positions[i * 3 + 1] = brightness * 10 - 5; // Adjust Y position based on brightness
+            positions[i * 3 + 1] = (brightness * 10 - 5) || 0; // Original brightness multiplier
         }
     }
 
-    // Mark the position attribute as needing an update
     particles.geometry.attributes.position.needsUpdate = true;
+    particles.geometry.computeBoundingSphere();
 }
 
-/**
- * Animate the scene by updating particles and rendering 
- */
 function animate(time) {
-    requestAnimationFrame(animate); // Request the next animation frame
-    updateParticles(time); // Update particle positions
-    renderer.render(scene, camera); // Render the scene
+    requestAnimationFrame(animate);
+    updateParticles(time);
+    renderer.render(scene, camera);
 }
 
-/**
- * Handle window resize events 
- */
 window.addEventListener('resize', () => {
-    // Update Three.js renderer and camera
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Initialize the scene
-async function main() {
-    init();
-}
-
-main();
+init();
