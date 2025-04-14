@@ -189,7 +189,7 @@ function updateParticles() {
         ctx.fill();
         
         // Slowly expand the cluster radius
-        cluster.radius += 1;
+        cluster.radius += 0.7;
     });
     
     // Update and draw individual particles
