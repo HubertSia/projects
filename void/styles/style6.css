@@ -1,0 +1,9 @@
+video{
+        display: none;
+    }
+    
+    
+body {
+    overflow: hidden;
+    margin: 0;
+}

@@ -1,0 +1,40 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+li {
+    margin: 10px 0;
+}
+
+a {
+    text-decoration: none;
+    color: #007BFF;
+}
+
+#webcam-feed {
+    display: none;
+    /* Hide the webcam feed */
+}
+
+#output {
+    margin-top: 20px;
+    font-size: 1.2em;
+}
+
+#page-title{    
+font-family: 'Courier New',monospace;
+font-weight: 300;
+letter-spacing: 0.1em;
+text-transform: uppercase;
+text-align: center;
+z-index: 10;
+text-shadow: 0 0 10px rgba(0, 17, 255, 0.7);
+    
+}
+ 
