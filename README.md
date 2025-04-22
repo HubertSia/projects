@@ -39,7 +39,7 @@ Fallback to Mouse Control: If body tracking or webcam access is unavailable, the
 
 
 
-## Smoke (prototype) – script6.js
+## Planets 
 This script combines PoseNet for pose estimation, HandPose for gesture detection, and particle effects for interactive visuals. It captures the user's webcam feed, detects their pose and hand gestures, and renders visual effects based on the detected keypoints.
 Features
 Pose Estimation: Uses PoseNet to detect the user's pose and keypoints.
@@ -49,7 +49,7 @@ Navigation: Navigates to random pages based on hand gestures.
 
 =============================================================================
 
-## Psychedelic wave (prototype) – script4.js
+## Space dust
 This script creates an interactive web application that combines webcam feed processing, particle effects, and hand gesture detection. The particles form wave-like patterns influenced by the brightness of the webcam feed, and hand gestures control navigation between pages.
 Features
 Wave-Like Particle Effects: Particles form smooth, wave-like patterns.
@@ -57,23 +57,14 @@ Color Transitions: Particles transition between two predefined colors.
 Hand Gesture Detection: Uses HandPose to detect open or closed palms.
 Navigation: Navigates to random pages based on hand gestures.
 
-Note: Multiple options available
+
 ==============================================================================
 
-## Vortex (prototype) – script3.js
+## Black Hole
 This script is an advanced version of script1.js, leveraging Three.js to create a 3D particle system that interacts with the user's webcam feed. It integrates the HandPose model for gesture detection and creates a visually dynamic experience.
 Features
 3D Particle System: Particles form a vortex-like effect influenced by the webcam feed.
 Hand Gesture Detection: Uses the HandPose model to detect open or closed palms.
-Navigation: Navigates to random pages based on hand gestures.
-
-==============================================================================
-
-## Planet (prototype) – script1.js
-This script creates an interactive web application that uses the user's webcam feed to detect hand gestures and control particle animations on a canvas. The application uses the HandPose model for gesture detection and navigates between pages based on hand gestures.
-Features
-Hand Gesture Detection: Uses the HandPose model to detect open or closed palms.
-Particle Effects: Particles move based on the brightness of the webcam feed.
 Navigation: Navigates to random pages based on hand gestures.
 
 ==============================================================================
@@ -85,24 +76,20 @@ This project use:
 - Three.js (Any 3D or particle related visual): https://threejs.org/docs/index.html#manual/en/introduction/Creating-a-scene
 - MediaDevice (Webcam): https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
 - Canvas API: https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API
-- Galaxy:
+- Three.js webcam: https://www.youtube.com/watch?v=OZF_0a6Vj3c&ab_channel=FTD
+
+- Unsorted Attribution:
    - https://codesandbox.io/p/sandbox/threejs-galaxy-dqesf?file=%2Fsrc%2Findex.js
    - https://www.youtube.com/watch?v=rd_VCToelw4
    - https://www.youtube.com/watch?v=o_bEveIFfoM
    - https://www.youtube.com/watch?v=fC33DfHsecE
    - https://github.com/the-halfbloodprince/GalaxyM1199/blob/master/src/script.js
- - Psychedelic (Forces, vectors, springs, friction, drag, etc.) :
-   - https://natureofcode.com
    - https://www.youtube.com/watch?v=wRmeFtRkF-8&list=PLkQj0oVF_lCyCnVRYZMvjhoMSHSre6Dge
    - https://www.youtube.com/watch?v=m463X1cqV6s
    - https://www.youtube.com/watch?v=XXEK3UEDDIg
-   - https://www.youtube.com/watch?v=cluKQOY92Dw
    - https://www.youtube.com/watch?v=Rr-5HiXquhw
    - https://www.youtube.com/watch?v=YvNiLmHXZ_U
    - https://www.youtube.com/watch?v=WBdhAuWS6X8
-   - https://www.youtube.com/watch?v=ktPnruyC6cc&pp=ygUKI3A1cHJvamVjdA%3D%3D
-   - https://www.youtube.com/watch?v=VNmTubIDZOY
-   - Etc...
    
 
 
