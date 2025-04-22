@@ -1,8 +1,5 @@
-// THE PLANETS
-// 3/3 of navigable interactive environments 
-
 /**
- * This class represents a single particle system with visual effects and movement behavior
+ * This class represents a single particle with visual effects and movement behavior.
  * Each particle belongs to a joint cluster and has a unique gradient appearance.
  */
 class Particle {
@@ -90,17 +87,17 @@ async function loadModels() {
         //Load PoseNet (body pose estimation)
         updateLoadingText("Loading PoseNet model...");
         poseNetModel = await posenet.load({
-            
-             // Optimized for real-time use
-            architecture: 'MobileNetV1', 
-            
+
+            // Optimized for real-time use
+            architecture: 'MobileNetV1',
+
             // Balance of speed vs accuracy
             outputStride: 16,
-            
+
             inputResolution: { width: 640, height: 480 },
-            
+
             // Smaller = faster but less precise (Don't want to turn in to a power point presentation)
-            multiplier: 0.75              
+            multiplier: 0.75
         });
 
         // Dynamically load Handpose library
@@ -108,7 +105,7 @@ async function loadModels() {
         const handposeScript = document.createElement('script');
         handposeScript.src = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose';
         document.head.appendChild(handposeScript);
-        
+
         // Wait for Handpose to load
         await new Promise(resolve => {
             const check = setInterval(() => {
@@ -121,11 +118,11 @@ async function loadModels() {
 
         // Initialize Handpose model
         handposeModel = await handpose.load();
-        
+
         // Warm up models with dummy data
         updateLoadingText("Warming up models...");
         await warmUpModels();
-        
+
         loadingOverlay.style.display = 'none';
         return true;
     } catch (error) {
@@ -146,7 +143,7 @@ async function warmUpModels() {
     const warmUpCtx = warmUpCanvas.getContext('2d');
     warmUpCtx.fillStyle = 'rgb(100,100,100)';
     warmUpCtx.fillRect(0, 0, warmUpCanvas.width, warmUpCanvas.height);
-    
+
     await poseNetModel.estimateSinglePose(warmUpCanvas);
     if (handposeModel) {
         await handposeModel.estimateHands(warmUpCanvas);
@@ -154,21 +151,22 @@ async function warmUpModels() {
 }
 
 /* ===== PARTICLE SYSTEM ===== */
+
 /**
  * Creates new particles associated with a specific body joint
- * @param {number} x - X position for new particles
- * @param {number} y - Y position for new particles
- * @param {string} jointId - Unique identifier for the joint cluster
- * @param {number} [count=5] - Number of particles to create
  */
+// Particles that connects to the joints
 function createParticles(x, y, jointId, count = 5) {
+
     // Create or update joint cluster metadata
     if (!jointClusters[jointId]) {
         jointClusters[jointId] = {
             centerX: x,
             centerY: y,
             lastUpdated: Date.now(),
-            radius: 50  // Initial radius for cluster gradient
+
+            // Initial radius for cluster gradient
+            radius: 50
         };
     } else {
         // Update existing cluster position and timestamp
@@ -188,14 +186,14 @@ function createParticles(x, y, jointId, count = 5) {
  */
 function updateParticles() {
     const now = Date.now();
-    
+
     // Remove stale joint clusters (>2 seconds old)
     Object.keys(jointClusters).forEach(jointId => {
         if (now - jointClusters[jointId].lastUpdated > 2000) {
             delete jointClusters[jointId];
         }
     });
-    
+
     // Group particles by their joint clusters
     const clusterParticles = {};
     particles.forEach(particle => {
@@ -204,45 +202,45 @@ function updateParticles() {
         }
         clusterParticles[particle.jointId].push(particle);
     });
-    
+
     // Render each active cluster's gradient background
     Object.keys(jointClusters).forEach(jointId => {
         const cluster = jointClusters[jointId];
-        
+
         // Create orange-to-blue radial gradient
         const gradient = ctx.createRadialGradient(
             cluster.centerX, cluster.centerY, 0,
             cluster.centerX, cluster.centerY, cluster.radius
         );
-        
+
         // Vibrant orange center
-        gradient.addColorStop(0, 'rgba(255, 117, 67, 0.83)');  
-        
+        gradient.addColorStop(0, 'rgba(255, 117, 67, 0.83)');
+
         // Faded purple edge
-        gradient.addColorStop(1, 'rgba(198, 54, 255, 0.16)');  
-        
+        gradient.addColorStop(1, 'rgba(198, 54, 255, 0.16)');
+
         // Draw the cluster background
         ctx.beginPath();
         ctx.arc(cluster.centerX, cluster.centerY, cluster.radius, 0, Math.PI * 2);
         ctx.fillStyle = gradient;
         ctx.fill();
-        
+
         // Animate cluster expansion
         cluster.radius += 0.7;
     });
-    
+
     // Update and render individual particles
     particles.forEach((particle, index) => {
         particle.update();
-        
+
         // Only draw particles from active clusters
         if (jointClusters[particle.jointId]) {
             particle.draw(ctx);
         }
-        
+
         // Shrink particles over time
         if (particle.size > 0.2) particle.size -= 0.05;
-        
+
         // Remove tiny particles
         if (particle.size <= 0.2) particles.splice(index, 1);
     });
@@ -251,19 +249,17 @@ function updateParticles() {
 /* ===== GESTURE DETECTION ===== */
 /**
  * Detects open palm gesture from hand landmarks
- *  Array of 21 hand landmark positions
- *  True if at least 3 fingers are extended
  */
 function isOpenHand(landmarks) {
-    
-     // Indices of fingertip landmarks
-    const tips = [4, 8, 12, 16, 20]; 
-    
+
+    // Indices of fingertip landmarks
+    const tips = [4, 8, 12, 16, 20];
+
     // Wrist landmark position
-    const wrist = landmarks[0];    
-    
+    const wrist = landmarks[0];
+
     return tips.filter(i => {
-        return Math.hypot(landmarks[i][0]-wrist[0], landmarks[i][1]-wrist[1]) > 100;
+        return Math.hypot(landmarks[i][0] - wrist[0], landmarks[i][1] - wrist[1]) > 100;
     }).length >= 3;  // Require ≥3 extended fingers
 }
 
@@ -276,7 +272,7 @@ async function detectGestures() {
     try {
         const predictions = await handposeModel.estimateHands(video);
         const now = Date.now();
-        
+
         if (predictions.length > 0) {
             lastHandDetection = now;
             const handOpen = predictions.some(pred => isOpenHand(pred.landmarks));
@@ -284,7 +280,7 @@ async function detectGestures() {
             if (handOpen) {
                 openPalmTime += DETECTION_INTERVAL;
                 closedPalmTime = 0;
-                
+
                 // Trigger navigation after 5 seconds
                 if (openPalmTime >= GESTURE_HOLD_DURATION) {
                     navigateToRandomPage();
@@ -292,7 +288,7 @@ async function detectGestures() {
             } else {
                 closedPalmTime += DETECTION_INTERVAL;
                 openPalmTime = 0;
-                
+
                 // Return home after 5 seconds closed fist
                 if (closedPalmTime >= GESTURE_HOLD_DURATION) {
                     navigateToIndex();
@@ -301,7 +297,7 @@ async function detectGestures() {
         } else {
             openPalmTime = 0;
             closedPalmTime = 0;
-            
+
             // Return home after 60 seconds inactivity
             if (now - lastHandDetection >= INACTIVITY_TIMEOUT) {
                 navigateToIndex();
@@ -338,14 +334,14 @@ async function setupCamera() {
         video = document.createElement('video');
         video.width = 1920;
         video.height = 1080;
-        
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
                 width: { ideal: 1920 },
-                height: { ideal: 1080 } 
-            } 
+                height: { ideal: 1080 }
+            }
         });
-        
+
         video.srcObject = stream;
         await new Promise(resolve => video.onloadedmetadata = resolve);
         video.play();
@@ -367,13 +363,13 @@ function drawKeypoints(keypoints) {
     keypoints.forEach((keypoint, index) => {
         if (keypoint.score > 0.5) {  // Only high-confidence keypoints
             const jointId = `joint_${keypoint.part}_${index}`;
-            
+
             // Draw the joint marker
             ctx.beginPath();
             ctx.arc(keypoint.position.x, keypoint.position.y, 5, 0, 2 * Math.PI);
             ctx.fillStyle = 'red';
             ctx.fill();
-            
+
             // Spawn particles for this joint
             createParticles(keypoint.position.x, keypoint.position.y, jointId);
         }
@@ -385,21 +381,21 @@ function drawKeypoints(keypoints) {
  */
 async function estimatePose() {
     if (!poseNetModel || !video) return;
-    
+
     try {
-        const pose = await poseNetModel.estimateSinglePose(video, { 
+        const pose = await poseNetModel.estimateSinglePose(video, {
             flipHorizontal: true  // Mirror mode for more intuitive interaction
         });
-        
+
         // Clear canvas with black background
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = 'black';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
+
         // Draw keypoints and particles
         drawKeypoints(pose.keypoints);
         updateParticles();
-        
+
         // Continue the animation loop
         requestAnimationFrame(estimatePose);
     } catch (error) {
@@ -422,7 +418,7 @@ async function init() {
     canvas.height = 1080;
     document.body.appendChild(canvas);
     ctx = canvas.getContext('2d');
-    
+
     // 2. Initialize webcam
     video = await setupCamera();
     if (!video) {
@@ -441,10 +437,10 @@ async function init() {
         fallbackAnimate();
         return;
     }
-    
+
     // 3. Load ML models
     const modelsLoaded = await loadModels();
-    
+
     // 4. Start detection if models loaded successfully
     if (modelsLoaded) {
         estimatePose();  // Start pose estimation loop
@@ -455,7 +451,7 @@ async function init() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = 'black';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
+
             createParticles(
                 Math.random() * canvas.width,
                 Math.random() * canvas.height,
@@ -474,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof tf !== 'undefined') {
         tf.ready().then(() => init());
     } else {
-        
+
         // Dynamically load TensorFlow.js if needed
         const tfScript = document.createElement('script');
         tfScript.src = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs';
