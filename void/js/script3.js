@@ -40,7 +40,8 @@ let lastGestureState = null; // Tracks the last detected gesture ('open', 'close
  */
 async function preloadHandpose() {
     try {
-        // Load TensorFlow.js if not already loaded
+        
+        // Dynamically load TensorFlow.js if not available
         if (typeof tf === 'undefined') {
             await new Promise((resolve) => {
                 const script = document.createElement('script');
@@ -61,9 +62,11 @@ async function preloadHandpose() {
         }
 
         // Load and warm up the model
-        loadingIndicator.textContent = 'Loading model (30%)...';
+        loadingIndicator.textContent = 'Loading model...';
         model = await handpose.load();
-        await warmUpModel(); // Hidden warm-up for better performance
+        
+        // Hidden warm-up for better performance
+        await warmUpModel(); 
         
         loadingIndicator.textContent = 'Hand tracking ready!';
         setTimeout(() => loadingIndicator.style.display = 'none', 2000);
@@ -92,8 +95,6 @@ async function warmUpModel() {
 // ===== GESTURE DETECTION FUNCTIONS =====
 /**
  * Checks if landmarks represent an open hand (palm visible).
- * @param {Array} landmarks - Handpose landmarks array.
- * @returns {boolean} True if at least 3 fingers are extended.
  */
 function isOpenHand(landmarks) {
     const thumbTip = landmarks[4];

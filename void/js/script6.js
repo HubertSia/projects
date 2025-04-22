@@ -1,112 +1,107 @@
 /**
- * This class represents a single particle for visual effects
+ * This class represents a single particle with visual effects and movement behavior.
+ * Each particle belongs to a joint cluster and has a unique gradient appearance.
  */
 class Particle {
-    constructor(x, y) {
-        this.x = x;          // X position
-        this.y = y;          // Y position
-        this.size = Math.random() * 5 + 2;  // Random size (2-7 pixels)
-        this.speedX = Math.random() * 2 - 1; // Random horizontal speed (-1 to 1)
-        this.speedY = Math.random() * 2 - 1; // Random vertical speed (-1 to 1)
+    constructor(x, y, jointId) {
+        this.x = x;          // Current x-position (updated each frame)
+        this.y = y;          // Current y-position (updated each frame)
+        this.size = Math.random() * 5 + 2;  // Random size between 2-7 pixels
+        this.speedX = Math.random() * 2 - 1; // Horizontal movement speed (-1 to 1 px/frame)
+        this.speedY = Math.random() * 2 - 1; // Vertical movement speed (-1 to 1 px/frame)
+        this.jointId = jointId; // ID linking particle to its body joint cluster
+        this.originalX = x;  // Initial x-position for distance calculations
+        this.originalY = y;  // Initial y-position for distance calculations
     }
 
+    /**
+     * Updates particle position based on its velocity
+     */
     update() {
-        this.x += this.speedX;  // Move particle horizontally
-        this.y += this.speedY;  // Move particle vertically
+        this.x += this.speedX;
+        this.y += this.speedY;
     }
 
+    /**
+     * Draws the particle with a radial gradient effect
+     * @param {CanvasRenderingContext2D} ctx - Canvas drawing context
+     */
     draw(ctx) {
+        // Create a radial gradient that fades from blue to yellow
+        const gradient = ctx.createRadialGradient(
+            this.x, this.y, 0,          // Gradient center (particle position)
+            this.x, this.y, this.size   // Gradient extends to particle edge
+        );
+        gradient.addColorStop(0, 'rgba(0, 150, 255, 1)');    // Opaque blue at center
+        gradient.addColorStop(0.7, 'rgba(0, 150, 255, 0.6)'); // Semi-transparent blue
+        gradient.addColorStop(1, 'rgba(255, 255, 0, 0)');    // Fully transparent yellow edge
+
+        // Draw the particle
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';  // White with 80% opacity
+        ctx.fillStyle = gradient;
         ctx.fill();
     }
 }
 
-// ===== GLOBAL VARIABLES =====
-let particles = [];       // Array to store active particles
-let handposeModel;        // Handpose model (finger tracking)
-let poseNetModel;         // PoseNet model (body tracking)
+/* ===== GLOBAL STATE ===== */
+let particles = [];       // Array of all active particles
+let handposeModel;        // Loaded Handpose model for finger tracking
+let poseNetModel;         // Loaded PoseNet model for body tracking
 let video;                // Webcam video element
-let canvas, ctx;          // Canvas and its 2D context
+let canvas, ctx;          // Main canvas and its 2D context
+let jointClusters = {};   // Tracks active joint clusters with metadata
 
+/* ===== GESTURE TIMING ===== */
+let openPalmTime = 0;     // Accumulated time (ms) of open palm gesture
+let closedPalmTime = 0;   // Accumulated time (ms) of closed fist gesture
+let lastHandDetection = Date.now();  // Timestamp of last hand detection
+const GESTURE_HOLD_DURATION = 5000;  // 5 seconds to trigger navigation
+const INACTIVITY_TIMEOUT = 60000;    // 60 seconds to return to homepage
+const DETECTION_INTERVAL = 1000;     // Check gestures every 1 second
 
-
-// ===== GESTURE TIMING CONTROL =====
-let openPalmTime = 0;     // Tracks duration of open palm gesture (ms)
-let closedPalmTime = 0;   // Tracks duration of closed fist gesture (ms)
-let lastHandDetection = Date.now();  // Last time a hand was detected
-const GESTURE_HOLD_DURATION = 5000;  // 5s to trigger navigation
-const INACTIVITY_TIMEOUT = 60000;    // 60s timeout to return to homepage
-const DETECTION_INTERVAL = 1000;     // Check gestures every 1s
-
-
-
-
-// ===== LOADING SYSTEM =====
-
-// Create a loading UI with a div
+/* ===== LOADING SYSTEM ===== */
 const loadingOverlay = document.createElement('div');
-
-// Styles the loading overlay
 loadingOverlay.style.cssText = `
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.7); display: flex; justify-content: center;
   align-items: center; z-index: 1000; color: white; font-size: 24px;
 `;
-
-// Adds the overlay to the page
 document.body.appendChild(loadingOverlay);
 
-
-
 /**
- * Updates the loading screen text.
+ * Updates the loading screen text
+ * @param {string} text - Message to display
  */
 function updateLoadingText(text) {
-    
-    // Update loading screen text
-    loadingOverlay.textContent = text;  
+    loadingOverlay.textContent = text;
 }
 
-
-
-
-// ===== MODEL LOADING =====
+/* ===== MODEL LOADING ===== */
 /**
- * Loads TensorFlow.js models (PoseNet + Handpose) and warms them up.
+ * Loads PoseNet and Handpose models with progress feedback
+ * @returns {Promise<boolean>} True if models loaded successfully
  */
 async function loadModels() {
     try {
-        
-        /**
-         * Load PoseNet (body keypoints)
-         */
-        // Load the in-text message
+        //Load PoseNet (body pose estimation)
         updateLoadingText("Loading PoseNet model...");
-        // Load PoseNet with the configuration
         poseNetModel = await posenet.load({
             
-            // Lightweight model
-            architecture: 'MobileNetV1',  
+             // Optimized for real-time use
+            architecture: 'MobileNetV1', 
             
-             // Balance between speed/accuracy
+            // Balance of speed vs accuracy
             outputStride: 16,
             
-            // Input resolution
             inputResolution: { width: 640, height: 480 },
             
-            // Smaller = faster but less accurate (Don't want to become a power point presentation)
-            multiplier: 0.75
+            // Smaller = faster but less precise (Don't want to turn in to a power point presentation)
+            multiplier: 0.75              
         });
 
-        
-        /**
-         * Load Handpose (finger tracking)
-         */
+        // Dynamically load Handpose library
         updateLoadingText("Loading HandPose model...");
-        
-        // Dynamically load Handpose from CDN (extermnal link)
         const handposeScript = document.createElement('script');
         handposeScript.src = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose';
         document.head.appendChild(handposeScript);
@@ -114,113 +109,135 @@ async function loadModels() {
         // Wait for Handpose to load
         await new Promise(resolve => {
             const check = setInterval(() => {
-                
-                // Check if Handpose is loaded
                 if (typeof handpose !== 'undefined') {
-                    
-                    // Stop checking
                     clearInterval(check);
-                    
-                    // Go!!!
                     resolve();
                 }
-                
-                // Check every 100ms
             }, 100);
         });
 
-        // Initialize handpose
+        // Initialize Handpose model
         handposeModel = await handpose.load();
         
-    
-        /**
-         * Warm up models (avoid initial lag)
-         */
+        // Warm up models with dummy data
         updateLoadingText("Warming up models...");
         await warmUpModels();
         
-         // Hide loading screen
-        loadingOverlay.style.display = 'none'; 
-        
-        // Good to go!!!
+        loadingOverlay.style.display = 'none';
         return true;
-        
-    }
-    // Error logs
-    catch (error) {
-        
-        //Log the error
+    } catch (error) {
         console.error('Model loading failed:', error);
-        
-        //Show the error
         updateLoadingText("Failed to load models. Using fallback...");
-        
-        // Hade after 3 sec
         setTimeout(() => loadingOverlay.style.display = 'none', 3000);
-        
-        // Fallback mode
-        return false;  
+        return false;
     }
 }
 
-
 /**
- * Warm up models with dummy data
+ * Performs initial "warm-up" inference to prevent first-run lag
  */
 async function warmUpModels() {
-    
-    //Create a small canvas for warming up
     const warmUpCanvas = document.createElement('canvas');
-    
-    // Small resolution
     warmUpCanvas.width = 256;
     warmUpCanvas.height = 256;
     const warmUpCtx = warmUpCanvas.getContext('2d');
-    
-    //Fill with grey
     warmUpCtx.fillStyle = 'rgb(100,100,100)';
     warmUpCtx.fillRect(0, 0, warmUpCanvas.width, warmUpCanvas.height);
     
-    // Warm up PoseNet
     await poseNetModel.estimateSinglePose(warmUpCanvas);
-    
-    // Warm up Handpose (if loaded)
     if (handposeModel) {
         await handposeModel.estimateHands(warmUpCanvas);
     }
 }
 
-// ===== PARTICLE SYSTEM =====
+/* ===== PARTICLE SYSTEM ===== */
 /**
- * Creates new particles at (x,y).
- * (This is where the visual begins)
+ * Creates new particles associated with a specific body joint
+ * @param {number} x - X position for new particles
+ * @param {number} y - Y position for new particles
+ * @param {string} jointId - Unique identifier for the joint cluster
+ * @param {number} [count=5] - Number of particles to create
  */
-function createParticles(x, y, count = 5) {
-    
-    // Loop to creat "count" particles
+function createParticles(x, y, jointId, count = 5) {
+    // Create or update joint cluster metadata
+    if (!jointClusters[jointId]) {
+        jointClusters[jointId] = {
+            centerX: x,
+            centerY: y,
+            lastUpdated: Date.now(),
+            radius: 50  // Initial radius for cluster gradient
+        };
+    } else {
+        // Update existing cluster position and timestamp
+        jointClusters[jointId].centerX = x;
+        jointClusters[jointId].centerY = y;
+        jointClusters[jointId].lastUpdated = Date.now();
+    }
+
+    // Generate new particles
     for (let i = 0; i < count; i++) {
-        
-        // Add new particle to array
-        particles.push(new Particle(x, y));
+        particles.push(new Particle(x, y, jointId));
     }
 }
 
 /**
- * Updates and draws all particles.
- * Removes particles smaller than 0.2px.
+ * Updates and renders all particles with cluster-based effects
  */
 function updateParticles() {
+    const now = Date.now();
     
-    // Loop through particles
-    particles.forEach((particle, index) => {
+    // Remove stale joint clusters (>2 seconds old)
+    Object.keys(jointClusters).forEach(jointId => {
+        if (now - jointClusters[jointId].lastUpdated > 2000) {
+            delete jointClusters[jointId];
+        }
+    });
+    
+    // Group particles by their joint clusters
+    const clusterParticles = {};
+    particles.forEach(particle => {
+        if (!clusterParticles[particle.jointId]) {
+            clusterParticles[particle.jointId] = [];
+        }
+        clusterParticles[particle.jointId].push(particle);
+    });
+    
+    // Render each active cluster's gradient background
+    Object.keys(jointClusters).forEach(jointId => {
+        const cluster = jointClusters[jointId];
         
-        // Update position
+        // Create orange-to-blue radial gradient
+        const gradient = ctx.createRadialGradient(
+            cluster.centerX, cluster.centerY, 0,
+            cluster.centerX, cluster.centerY, cluster.radius
+        );
+        
+        // Vibrant orange center
+        gradient.addColorStop(0, 'rgba(255, 117, 67, 0.83)');  
+        
+        // Faded purple edge
+        gradient.addColorStop(1, 'rgba(198, 54, 255, 0.16)');  
+        
+        // Draw the cluster background
+        ctx.beginPath();
+        ctx.arc(cluster.centerX, cluster.centerY, cluster.radius, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        
+        // Animate cluster expansion
+        cluster.radius += 0.7;
+    });
+    
+    // Update and render individual particles
+    particles.forEach((particle, index) => {
         particle.update();
         
-        // Draw on canvas
-        particle.draw(ctx);
+        // Only draw particles from active clusters
+        if (jointClusters[particle.jointId]) {
+            particle.draw(ctx);
+        }
         
-        // Shrink particle
+        // Shrink particles over time
         if (particle.size > 0.2) particle.size -= 0.05;
         
         // Remove tiny particles
@@ -228,92 +245,63 @@ function updateParticles() {
     });
 }
 
-// ===== GESTURE DETECTION =====
+/* ===== GESTURE DETECTION ===== */
 /**
- * Checks if landmarks represent an open hand.
+ * Detects open palm gesture from hand landmarks
+ *  Array of 21 hand landmark positions
+ *  True if at least 3 fingers are extended
  */
 function isOpenHand(landmarks) {
     
-    // Indices of fingertips in landmarks
-    const tips = [4, 8, 12, 16, 20];
+     // Indices of fingertip landmarks
+    const tips = [4, 8, 12, 16, 20]; 
     
-    // Wrist position
-    const wrist = landmarks[0];  
+    // Wrist landmark position
+    const wrist = landmarks[0];    
     
-    // Filter extended fingertips
     return tips.filter(i => {
-        
-        // Calculate distance from wrist to fingertip
-        return Math.hypot(landmarks[i][0] - wrist[0],
-            landmarks[i][1] - wrist[1]) > 100;
-       
-        // At least 3 extended fingers
-    }).length >= 3;  
+        return Math.hypot(landmarks[i][0]-wrist[0], landmarks[i][1]-wrist[1]) > 100;
+    }).length >= 3;  // Require ≥3 extended fingers
 }
 
 /**
- * Detects gestures and triggers navigation based on timers.
- * Runs every `DETECTION_INTERVAL` (1 sec).
+ * Main gesture detection loop (runs every second)
  */
 async function detectGestures() {
-    
-    // Skip if Handpose isn't loaded
     if (!handposeModel) return;
 
     try {
-        
-        // Detect hands
         const predictions = await handposeModel.estimateHands(video);
-        
-        // Current timestamp
         const now = Date.now();
         
-        // If hands detected
         if (predictions.length > 0) {
-            
-            // Update last detection time
             lastHandDetection = now;
-            
-            // Check for open palm
             const handOpen = predictions.some(pred => isOpenHand(pred.landmarks));
 
-            
             if (handOpen) {
-                
-                 // Accumulate open palm time
                 openPalmTime += DETECTION_INTERVAL;
-                
-                // Reset closed palm time
                 closedPalmTime = 0;
                 
-                // Navigate to a random page after 5s of open palm
+                // Trigger navigation after 5 seconds
                 if (openPalmTime >= GESTURE_HOLD_DURATION) {
                     navigateToRandomPage();
-
                 }
-                
-                 // Closed fist
             } else {
-                
-                // Accumulate closed palm time
                 closedPalmTime += DETECTION_INTERVAL;
                 openPalmTime = 0;
                 
-                // Return to homepage after 5s of closed fist
+                // Return home after 5 seconds closed fist
                 if (closedPalmTime >= GESTURE_HOLD_DURATION) {
                     navigateToIndex();
-                    console.log('Close palm detected - starting 5 second timer');
                 }
             }
         } else {
             openPalmTime = 0;
             closedPalmTime = 0;
             
-            // Return to homepage after 60s of inactivity
+            // Return home after 60 seconds inactivity
             if (now - lastHandDetection >= INACTIVITY_TIMEOUT) {
                 navigateToIndex();
-                console.log('No hands detected - starting 1 minute timer');
-                
             }
         }
     } catch (error) {
@@ -321,157 +309,127 @@ async function detectGestures() {
     }
 }
 
-// ===== NAVIGATION =====
+/* ===== NAVIGATION ===== */
 /**
- * Navigates to a random page from a predefined list.
+ * Navigates to a random page from the predefined list
  */
 function navigateToRandomPage() {
-    
-    //List of the pages
-    const pages = ['particle4.html', 'particle3.html'];  
-    
-     // Random selection
+    const pages = ['particle4.html', 'particle3.html'];
     window.location.href = pages[Math.floor(Math.random() * pages.length)];
-                        console.log('Open palm detected - starting 5 second timer');
-
 }
 
 /**
- * Navigates back to the homepage.
+ * Returns to the homepage
  */
 function navigateToIndex() {
-    
-   // Redirect to homepage 
-    window.location.href = 'index.html';  
+    window.location.href = 'index.html';
 }
 
-// ===== CAMERA SETUP =====
+/* ===== CAMERA SETUP ===== */
 /**
- * Initializes the webcam.
+ * Initializes webcam with preferred resolution
+ * @returns {Promise<HTMLVideoElement|null>} Video element or null if failed
  */
 async function setupCamera() {
     try {
-        // Create video element
         video = document.createElement('video');
-        
-        // Set width and height
         video.width = 1920;
         video.height = 1080;
         
-                
-        // Request camera access
         const stream = await navigator.mediaDevices.getUserMedia({ 
-           
-            //Preferred resolution
             video: { 
-                width: { ideal: 1920 },  
+                width: { ideal: 1920 },
                 height: { ideal: 1080 } 
             } 
         });
         
-        // Attach stream to video
         video.srcObject = stream;
-        
-        // Wait for metadata
         await new Promise(resolve => video.onloadedmetadata = resolve);
-        
-        // Start video playback
         video.play();
-        
-        // Return video element
         return video;
     } catch (error) {
-        
-        // Log error
         console.error('Camera error:', error);
-        
-        // Show message
         updateLoadingText("Camera access denied. Using fallback...");
-        
-        // Hide after 3s
         setTimeout(() => loadingOverlay.style.display = 'none', 3000);
-        
-        // Fallback mode
-        return null;  
+        return null;
     }
 }
 
-// ===== POSE ESTIMATION =====
+/* ===== POSE ESTIMATION ===== */
 /**
- * Draws body keypoints and spawns particles at each joint.
+ * Renders body keypoints and spawns associated particles
+ * @param {Array} keypoints - PoseNet keypoints array
  */
 function drawKeypoints(keypoints) {
-    
-    // Loop through keypoints
-    keypoints.forEach(keypoint => {
-        
-        // Only high-confidence keypoints
-        if (keypoint.score > 0.5) {  
+    keypoints.forEach((keypoint, index) => {
+        if (keypoint.score > 0.5) {  // Only high-confidence keypoints
+            const jointId = `joint_${keypoint.part}_${index}`;
             
-            // Start drawing
+            // Draw the joint marker
             ctx.beginPath();
-            
-            // Draw circle
             ctx.arc(keypoint.position.x, keypoint.position.y, 5, 0, 2 * Math.PI);
-            
-            // Set control color
             ctx.fillStyle = 'red';
-            
-            // Fill circle
             ctx.fill();
             
-            // Spawn particles
-            createParticles(keypoint.position.x, keypoint.position.y);  // Spawn particles
+            // Spawn particles for this joint
+            createParticles(keypoint.position.x, keypoint.position.y, jointId);
         }
     });
 }
 
 /**
- * Main pose estimation loop: draws webcam feed, keypoints, and particles.
+ * Main pose estimation and rendering loop
  */
 async function estimatePose() {
-    
-    // Skip if models/video aren't ready
     if (!poseNetModel || !video) return;
     
     try {
         const pose = await poseNetModel.estimateSinglePose(video, { 
-            
-           // Non-mirrored mode
-            flipHorizontal: false
+            flipHorizontal: true  // Mirror mode for more intuitive interaction
         });
         
-        // Clear canvas
+        // Clear canvas with black background
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw keypoints and particles
         drawKeypoints(pose.keypoints);
         updateParticles();
         
-        requestAnimationFrame(estimatePose);  // Loop
+        // Continue the animation loop
+        requestAnimationFrame(estimatePose);
     } catch (error) {
         console.error('Pose estimation error:', error);
     }
 }
 
-// ===== MAIN INITIALIZATION =====
+/* ===== MAIN INITIALIZATION ===== */
+/**
+ * Initializes the entire application:
+ * 1. Sets up canvas
+ * 2. Initializes camera
+ * 3. Loads ML models
+ * 4. Starts detection loops
+ */
 async function init() {
-    //Setup canvas (full HD resolution)
+    // 1. Create full HD canvas
     canvas = document.createElement('canvas');
     canvas.width = 1920;
     canvas.height = 1080;
     document.body.appendChild(canvas);
     ctx = canvas.getContext('2d');
     
-    //Setup camera
+    // 2. Initialize webcam
     video = await setupCamera();
     if (!video) {
-        
-        // Fallback animation if camera fails
+        // Fallback mode with random particles
         const fallbackAnimate = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             createParticles(
                 Math.random() * canvas.width,
                 Math.random() * canvas.height,
+                `fallback_${Date.now()}`,
                 1
             );
             updateParticles();
@@ -481,26 +439,24 @@ async function init() {
         return;
     }
     
-    //Load models
+    // 3. Load ML models
     const modelsLoaded = await loadModels();
     
-    // Start detection if models loaded
+    // 4. Start detection if models loaded successfully
     if (modelsLoaded) {
-        
-         // Start pose estimation loop
-        estimatePose(); 
-        
-        // Start gesture detection
-        setInterval(detectGestures, DETECTION_INTERVAL);
+        estimatePose();  // Start pose estimation loop
+        setInterval(detectGestures, DETECTION_INTERVAL);  // Start gesture detection
     } else {
-        
-        // Fallback animation if models fail
+        // Fallback mode with webcam and random particles
         const fallbackAnimate = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
             createParticles(
                 Math.random() * canvas.width,
                 Math.random() * canvas.height,
+                `fallback_${Date.now()}`,
                 2
             );
             updateParticles();
@@ -510,12 +466,13 @@ async function init() {
     }
 }
 
-// Start when TensorFlow.js is ready
+// Start application when TensorFlow.js is ready
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof tf !== 'undefined') {
         tf.ready().then(() => init());
     } else {
-        // Load TF.js if not already loaded
+        
+        // Dynamically load TensorFlow.js if needed
         const tfScript = document.createElement('script');
         tfScript.src = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs';
         tfScript.onload = () => tf.ready().then(() => init());
