@@ -511,7 +511,7 @@ async function trackUser() {
 
                         if (currentGesture === 'open') {
                             setTimeout(() => {
-                                const pages = ['particle6.html', 'particle4.html', 'particle3.html'];
+                                const pages = ['blackHole.html', 'planets.html', 'spaceDust.html'];
                                 const randomPage = pages[Math.floor(Math.random() * pages.length)];
                                 window.location.href = randomPage;
                             }, 6000);
