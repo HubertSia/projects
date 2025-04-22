@@ -52,6 +52,13 @@ async function preloadHandpose() {
 
         // Load Handpose model if not already loaded
         if (typeof handpose === 'undefined') {
+
+            //putting the sound in a random spot because it works
+            mySound = new Audio('assets/spaceFinal.wav')
+            mySound.play()
+            mySound.volume = 0.5
+            console.log('playing sound');
+
             await new Promise((resolve) => {
                 const script = document.createElement('script');
                 script.src = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose';
@@ -63,10 +70,10 @@ async function preloadHandpose() {
         // Load and warm up the model
         loadingIndicator.textContent = 'Loading model ...';
         model = await handpose.load();
-        
+
         // Hidden warm-up for better performance
-        await warmUpModel(); 
-        
+        await warmUpModel();
+
         loadingIndicator.textContent = 'Hand tracking ready!';
         setTimeout(() => loadingIndicator.style.display = 'none', 2000);
         return model;
@@ -105,7 +112,7 @@ function isOpenHand(landmarks) {
     const pinkyTip = landmarks[20];
     const wrist = landmarks[0];
 
-    
+
     /**
      * Calculate distances from fingertips to wrist
      */
@@ -116,7 +123,7 @@ function isOpenHand(landmarks) {
     const pinkyDistance = Math.hypot(pinkyTip[0] - wrist[0], pinkyTip[1] - wrist[1]);
 
     // Pixel distance threshold for "open"
-    const openThreshold = 100; 
+    const openThreshold = 100;
     const extendedFingers = [
         thumbDistance > openThreshold,
         indexDistance > openThreshold,
@@ -126,7 +133,7 @@ function isOpenHand(landmarks) {
     ].filter(Boolean).length;
 
     // At least 3 fingers extended
-    return extendedFingers >= 3; 
+    return extendedFingers >= 3;
 }
 
 /**
@@ -148,8 +155,8 @@ function isClosedHand(landmarks) {
     const ringPinkyDistance = Math.hypot(ringTip[0] - pinkyTip[0], ringTip[1] - pinkyTip[1]);
 
     // All fingers should be close together for a fist
-    return (thumbIndexDistance < 30 && indexMiddleDistance < 30 && 
-            middleRingDistance < 30 && ringPinkyDistance < 30);
+    return (thumbIndexDistance < 30 && indexMiddleDistance < 30 &&
+        middleRingDistance < 30 && ringPinkyDistance < 30);
 }
 
 /**
@@ -157,30 +164,30 @@ function isClosedHand(landmarks) {
  * Runs every second (setInterval in init()).
  */
 async function detectGestures() {
-    
+
     // Skip if handpose failed to load
-    if (!model) return; 
+    if (!model) return;
 
     try {
         const predictions = await model.estimateHands(video);
         let currentGestureState = null;
-        
+
         if (predictions.length > 0) {
             const atLeastOneOpen = predictions.some(prediction => isOpenHand(prediction.landmarks));
             const atLeastOneClosed = predictions.some(prediction => isClosedHand(prediction.landmarks));
 
             if (atLeastOneOpen) {
-                
+
                 // Palm open detected
                 currentGestureState = 'open';
             } else if (atLeastOneClosed) {
-                
-            // Palm closed detected
+
+                // Palm closed detected
                 currentGestureState = 'closed';
             }
         } else {
-            
-             // No hands detected
+
+            // No hands detected
             currentGestureState = 'none';
         }
 
@@ -188,43 +195,43 @@ async function detectGestures() {
         if (currentGestureState !== lastGestureState) {
             clearTimeout(openHandTimer);
             clearTimeout(noHandsTimer);
-            
+
             // If state id open (Palm detection open)
             if (currentGestureState === 'open') {
-                
+
                 // Got to a random page after 5 second
                 console.log('Open palm detected - starting 5 second timer');
                 openHandTimer = setTimeout(() => {
                     const pages = ['spaceDust.html', 'planets.html'];
                     window.location.href = pages[Math.floor(Math.random() * pages.length)];
                 }, OPEN_HAND_DURATION);
-            } 
-            
+            }
+
             // If state close (Palm detection close)
             else if (currentGestureState === 'closed') {
-                
+
                 // Go back to menu after 5 second
                 console.log('Closed palm detected - starting 5 second timer');
                 openHandTimer = setTimeout(() => {
                     window.location.href = 'index.html';
                 }, OPEN_HAND_DURATION);
             }
-                
+
             // If state none (No palm detected)
             else if (currentGestureState === 'none') {
-                
+
                 // Return to the hub after 1 min
                 console.log('No hands detected - starting 1 minute timer');
                 noHandsTimer = setTimeout(() => {
                     window.location.href = 'index.html';
                 }, NO_HANDS_DURATION);
             }
-            
+
             // Detect the ladt state
             lastGestureState = currentGestureState;
         }
-        
-    // Error log
+
+        // Error log
     } catch (error) {
         console.log('Detection busy - skipping frame');
     }
@@ -250,43 +257,44 @@ function init() {
     video.autoplay = true;
     video.muted = true;
     video.playsInline = true;
-    
+
     navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
         video.srcObject = stream;
         video.play();
 
         // Start hand tracking after camera is ready
         preloadHandpose().then(() => {
-            
+
             // Check gestures every second
-            setInterval(detectGestures, 1000); 
+            setInterval(detectGestures, 1000);
         });
     });
 
     // === Particle System Setup ===
-    
+
     /**
      * Texture from webcam feed
      */
-    videoTexture = new THREE.VideoTexture(video); 
+    videoTexture = new THREE.VideoTexture(video);
     videoCanvas = document.createElement('canvas');
     videoContext = videoCanvas.getContext('2d');
 
     // Total particles
-    const particleCount = 10000; 
+    const particleCount = 10000;
     const geometry = new THREE.BufferGeometry();
-    
+
     // XYZ positions
-    positions = new Float32Array(particleCount * 3); 
-    
+    positions = new Float32Array(particleCount * 3);
+
     // Texture coordinates
-    const uvs = new Float32Array(particleCount * 2); 
-    
+    const uvs = new Float32Array(particleCount * 2);
+
     // RGB colors per particle
-    colors = new Float32Array(particleCount * 3); 
+    colors = new Float32Array(particleCount * 3);
 
     // Initialize particle positions and colors
     for (let i = 0; i < particleCount; i++) {
+
         const radius = Math.random() * 10; // Random radius from center (0-10)
         const angle = Math.random() * Math.PI * 2; // Random angle
         positions[i * 3] = Math.cos(angle) * radius || 0;
@@ -295,42 +303,42 @@ function init() {
 
         uvs[i * 2] = Math.random(); // Random UVs for texture sampling
         uvs[i * 2 + 1] = Math.random();
-        
+
         // Set initial color based on distance from center
         updateParticleColor(i);
     }
 
     // Assign attributes to geometry
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    
+
     // Enable vertex UV
     geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-    
+
     // Enable vertex colors
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3)); 
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.computeBoundingSphere();
 
-    
+
     /**
      * Particle material with video texture and color blending
      */
     const material = new THREE.PointsMaterial({
-        
+
         // Particle size
-        size: 0.12, 
-        
+        size: 0.12,
+
         // Webcam feed as texture
-        map: videoTexture, 
+        map: videoTexture,
         transparent: true,
-        
+
         // Use per-particle colors
-        vertexColors: true, 
-        
-         // Glow effect
+        vertexColors: true,
+
+        // Glow effect
         blending: THREE.AdditiveBlending,
-        
+
         // Better transparency
-        depthWrite: false 
+        depthWrite: false
     });
 
     particles = new THREE.Points(geometry, material);
@@ -346,14 +354,14 @@ function updateParticleColor(index) {
     const x = positions[index * 3];
     const y = positions[index * 3 + 1];
     const z = positions[index * 3 + 2];
-    
+
     // Distance from center (0,0,0)
-    const distance = Math.sqrt(x*x + y*y + z*z);
+    const distance = Math.sqrt(x * x + y * y + z * z);
     const normalizedDistance = Math.min(distance / 10, 1.0); // Normalize to 0-1
-    
+
     // Interpolate between center and outer colors
     const color = new THREE.Color().copy(CENTER_COLOR).lerp(OUTER_COLOR, normalizedDistance);
-    
+
     // Update color buffer
     colors[index * 3] = color.r;
     colors[index * 3 + 1] = color.g;
@@ -373,9 +381,9 @@ function updateParticles(time) {
     videoCanvas.width = 1920;
     videoCanvas.height = 1080;
     videoContext.save();
-    
+
     // Flip vertically
-    videoContext.scale(1, -1); 
+    videoContext.scale(1, -1);
     videoContext.translate(0, -videoCanvas.height);
     videoContext.drawImage(videoTexture.image, 0, 0, videoCanvas.width, videoCanvas.height);
     videoContext.restore();
@@ -394,23 +402,23 @@ function updateParticles(time) {
 
         // Apply gentle circular motion
         const radius = Math.sqrt(x * x + z * z) || 0;
-        const angle = Math.atan2(z, x) + time * 0.0005; 
-        
+        const angle = Math.atan2(z, x) + time * 0.0005;
+
         // Positioning according to the mapping
         positions[i * 3] = (Math.cos(angle) * radius || 0) + (Math.random() - 0.5) * 0.02;
         positions[i * 3 + 1] = y + (Math.random() - 0.5) * 0.02 || 0;
         positions[i * 3 + 2] = (Math.sin(angle) * radius || 0) + (Math.random() - 0.5) * 0.02;
 
         // Map particle Y position to brightness from webcam
-        const brightnessIndex = (Math.floor((y + 5) / 10 * videoCanvas.height) * videoCanvas.width + 
-                              Math.floor((x + 5) / 10 * videoCanvas.width)) * 4;
-        
+        const brightnessIndex = (Math.floor((y + 5) / 10 * videoCanvas.height) * videoCanvas.width +
+            Math.floor((x + 5) / 10 * videoCanvas.width)) * 4;
+
         // Adjust Y position based on brightness
         if (brightnessIndex >= 0 && brightnessIndex + 2 < data.length) {
             const brightness = (data[brightnessIndex] + data[brightnessIndex + 1] + data[brightnessIndex + 2]) / 3 / 255;
-            positions[i * 3 + 1] = (brightness * 10 - 5) || 0; 
+            positions[i * 3 + 1] = (brightness * 10 - 5) || 0;
         }
-        
+
         // Update color based on new position
         updateParticleColor(i);
     }

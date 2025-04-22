@@ -176,19 +176,19 @@ const generateGalaxy = () => {
     // Create each particle
     for (let i = 0; i < parameters.count; i++) {
         const i3 = i * 3;
-        
+
         // Position calculations
         const radius = Math.random() * parameters.radius;
         const spinAngle = radius * parameters.spin;
         const branchAngle = (i % parameters.branches) / parameters.branches * Math.PI * 2;
 
         // Random offsets (creates organic look)
-        const randomX = Math.pow(Math.random(), parameters.randomnessPower) * 
-                       (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
-        const randomY = Math.pow(Math.random(), parameters.randomnessPower) * 
-                       (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
-        const randomZ = Math.pow(Math.random(), parameters.randomnessPower) * 
-                       (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
+        const randomX = Math.pow(Math.random(), parameters.randomnessPower) *
+            (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
+        const randomY = Math.pow(Math.random(), parameters.randomnessPower) *
+            (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
+        const randomZ = Math.pow(Math.random(), parameters.randomnessPower) *
+            (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
 
         // Set positions
         positions[i3] = Math.cos(branchAngle + spinAngle) * radius + randomX;
@@ -234,13 +234,13 @@ const rotationSmoothing = 0.01; // Lower = smoother but slower rotation
 
 function animate() {
     const elapsedTime = clock.getElapsedTime();
-    
+
     // Smooth rotation towards target
     userRotation += (targetRotation - userRotation) * rotationSmoothing;
-    
+
     // Combine automatic and user rotation
     points.rotation.y = elapsedTime * 0.03 + userRotation;
-    
+
     // Render frame
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
@@ -354,7 +354,7 @@ let poseModel = null;
 // Prepares models by running dummy detection
 async function warmUpModels() {
     if (!handModel || !poseModel) return;
-    
+
     // Create blank canvas for warm-up
     const canvas = document.createElement('canvas');
     canvas.width = 256;
@@ -362,7 +362,7 @@ async function warmUpModels() {
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+
     // Warm up hand model
     try {
         await handModel.estimateHands(canvas);
@@ -370,7 +370,7 @@ async function warmUpModels() {
     } catch (e) {
         console.warn('Hand model warm-up failed:', e);
     }
-    
+
     // Warm up pose model
     try {
         await poseModel.estimatePoses(canvas);
@@ -384,35 +384,35 @@ async function warmUpModels() {
 async function initModels() {
     try {
         updateProgress(95);
-        
+
         // Load hand tracking model
         handModel = await handpose.load();
-        
+
         // Load body tracking model (using lightweight version)
         poseModel = await poseDetection.createDetector(
             poseDetection.SupportedModels.MoveNet,
             { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
         );
-        
+
         // Warm up models for better initial performance
         await warmUpModels();
-        
+
         // Complete loading
         updateProgress(100);
-        
+
         // Fade out loading screen
         loadingContainer.style.transition = 'opacity 0.5s';
         loadingContainer.style.opacity = '0';
         setTimeout(() => {
             loadingContainer.style.display = 'none';
         }, 500);
-        
+
         // Start webcam if available
         setupWebcam();
     } catch (error) {
         console.error('Model initialization failed:', error);
         loadingText.textContent = 'Using mouse controls (tracking failed to load)';
-        
+
         // Still hide loading screen but with message
         setTimeout(() => {
             loadingContainer.style.opacity = '0';
@@ -480,6 +480,12 @@ async function trackUser() {
 
         // Hand gesture detection
         if (!gestureDetectionLocked) {
+            //playing sound
+            mySound = new Audio('assets/spaceFinal.wav')
+            mySound.play()
+            mySound.volume = 0.5
+            console.log('playing sound');
+
             const handPredictions = await handModel.estimateHands(video);
 
             if (handPredictions.length > 0) {

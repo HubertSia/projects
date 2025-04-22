@@ -443,6 +443,10 @@ async function init() {
 
     // 4. Start detection if models loaded successfully
     if (modelsLoaded) {
+        mySound = new Audio('assets/spaceFinal.wav')
+        mySound.play()
+        mySound.volume = 0.5
+        console.log('playing sound');
         estimatePose();  // Start pose estimation loop
         setInterval(detectGestures, DETECTION_INTERVAL);  // Start gesture detection
     } else {

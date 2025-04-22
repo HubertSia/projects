@@ -435,6 +435,10 @@ function animate() {  // Animation loop function
     const frameData = processWebcamData();  // Process webcam data
 
     if (frameData) {  // If webcam data available
+        mySound = new Audio('assets/spaceFinal.wav')
+        mySound.play()
+        mySound.volume = 0.5
+        console.log('playing sound');
         const currentFrame = frameData.current;  // Current frame
         const motionFrame = frameData.motion;    // Motion frame
 
