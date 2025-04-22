@@ -151,21 +151,22 @@ async function warmUpModels() {
 }
 
 /* ===== PARTICLE SYSTEM ===== */
+
 /**
  * Creates new particles associated with a specific body joint
- * @param {number} x - X position for new particles
- * @param {number} y - Y position for new particles
- * @param {string} jointId - Unique identifier for the joint cluster
- * @param {number} [count=5] - Number of particles to create
  */
+// Particles that connects to the joints
 function createParticles(x, y, jointId, count = 5) {
+    
     // Create or update joint cluster metadata
     if (!jointClusters[jointId]) {
         jointClusters[jointId] = {
             centerX: x,
             centerY: y,
             lastUpdated: Date.now(),
-            radius: 50  // Initial radius for cluster gradient
+            
+            // Initial radius for cluster gradient
+            radius: 50  
         };
     } else {
         // Update existing cluster position and timestamp
@@ -248,8 +249,6 @@ function updateParticles() {
 /* ===== GESTURE DETECTION ===== */
 /**
  * Detects open palm gesture from hand landmarks
- *  Array of 21 hand landmark positions
- *  True if at least 3 fingers are extended
  */
 function isOpenHand(landmarks) {
     
