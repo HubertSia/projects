@@ -4,7 +4,7 @@ This is the shared repositiory for Nadia and Hubert's Galaxy Installation
 Nadia and Hubert
 
 ## Description
-Our JavaScript-based project transforms viewers into interactive particle systems via webcam input, tracking movement to create an immersive, surreal experience. Whether on a laptop or projected, it uses a narrative with 4 distinct particle-based artworks. Inspired by artists like Yayoi Kusama, the visuals may require a seizure warning.
+Our JavaScript-based project transforms viewers into interactive particle systems via webcam input, tracking movement to create an immersive, surreal experience. Whether on a laptop or projected, it uses a narrative with 3 distinct particle-based artworks. Inspired by artists like Yayoi Kusama, the visuals may require a seizure warning.
 
 ## Setup Prerequisites:
 A modern web browser with WebGL support.
@@ -39,7 +39,7 @@ Fallback to Mouse Control: If body tracking or webcam access is unavailable, the
 
 
 
-## Planets 
+## Planets - planets.js
 This script combines PoseNet for pose estimation, HandPose for gesture detection, and particle effects for interactive visuals. It captures the user's webcam feed, detects their pose and hand gestures, and renders visual effects based on the detected keypoints.
 Features
 Pose Estimation: Uses PoseNet to detect the user's pose and keypoints.
@@ -49,7 +49,7 @@ Navigation: Navigates to random pages based on hand gestures.
 
 =============================================================================
 
-## Space dust
+## Space dust - spaceDust.js
 This script creates an interactive web application that combines webcam feed processing, particle effects, and hand gesture detection. The particles form wave-like patterns influenced by the brightness of the webcam feed, and hand gestures control navigation between pages.
 Features
 Wave-Like Particle Effects: Particles form smooth, wave-like patterns.
@@ -60,7 +60,7 @@ Navigation: Navigates to random pages based on hand gestures.
 
 ==============================================================================
 
-## Black Hole
+## Black Hole - blackHole.js
 This script is an advanced version of script1.js, leveraging Three.js to create a 3D particle system that interacts with the user's webcam feed. It integrates the HandPose model for gesture detection and creates a visually dynamic experience.
 Features
 3D Particle System: Particles form a vortex-like effect influenced by the webcam feed.
