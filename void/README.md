@@ -21,10 +21,10 @@ Three.js: For 3D rendering.
 Open the index.html file in a web browser.
 Allow webcam access when prompted.
 Navigation
-Open Palm: Hold your hand open to navigate to a random page after 3 seconds.
-Closed Palm: Keep your hand closed to navigate to index.html after 10 seconds.
+Open Palm: Hold your hand open to navigate to a random page after 5 seconds.
+Closed Palm: Keep your hand closed to navigate to index.html after 5 seconds.
 No Hands: If no hands are detected, the application logs "No Hands Detected."
-Automatic: Return to index.html after a 3 minute delay period from any other screen
+1 minute: Return to index.html.
 
 ==============================================================================
 
