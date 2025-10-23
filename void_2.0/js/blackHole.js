@@ -102,17 +102,17 @@ function createParticles() {
   videoContext = videoCanvas.getContext("2d");
 
   // Define point cloud size
-  const particleCount = 1000; // total particles (larger = more intense visuals)
+  const particleCount = 5000; // total particles (larger = more intense visuals)
   const geometry = new THREE.BufferGeometry(); // stores geometry data for GPU
 
   // Allocate data arrays for vertex attributes
-  positions = new Float32Array(particleCount * 3); // [X, Y, Z] per particle
-  const uvs = new Float32Array(particleCount * 2); // [U, V] for potential texture sampling
-  colors = new Float32Array(particleCount * 3); // [R, G, B] per particle
+  positions = new Float32Array(particleCount * 2); // [X, Y, Z] per particle
+  const uvs = new Float32Array(particleCount * 1); // [U, V] for potential texture sampling
+  colors = new Float32Array(particleCount * 2); // [R, G, B] per particle
 
   // Loop through and populate each particle with random values
   for (let i = 0; i < particleCount; i++) {
-    const radius = Math.random() * 10; // distance from center of the field
+    const radius = Math.random() * 7; // distance from center of the field
     const angle = Math.random() * Math.PI * 2; // random orbital angle
 
     // Position particles in a loose spherical "galactic" shape
@@ -140,7 +140,7 @@ function createParticles() {
    * efficiently. Combined with additive blending, we get a nice glowing dust field.
    */
   const material = new THREE.PointsMaterial({
-    size: 0.12, // visible size of each particle
+    size: 0.10, // visible size of each particle
     map: videoTexture, // webcam output used as pixel pattern
     transparent: true,
     vertexColors: true, // use colors from geometry (custom gradients)

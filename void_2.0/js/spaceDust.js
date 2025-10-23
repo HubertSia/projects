@@ -17,8 +17,8 @@ const motionCtx = motionCanvas.getContext("2d");
 // Webcam stream & particle storage
 let videoStream; // Webcam video input
 let particles = []; // Array to hold all those shiny space bits
-const cols = 45,
-  rows = 45; // Grid resolution (balance between performance and pretty visuals)
+const cols = 30,
+  rows = 30; // Grid resolution (balance between performance and pretty visuals)
 
 // Keep track of previous webcam frame to detect what’s changed (motion)
 let prevFrame = null;
@@ -37,11 +37,11 @@ class Particle {
     // Assign three random size categories — variety is beauty
     const sizeCategory = Math.floor(Math.random() * 3);
     if (sizeCategory === 0) {
-      this.radius = 3; // smol boi
+      this.radius = 5; // smol boi
     } else if (sizeCategory === 1) {
-      this.radius = 6; // average particle
+      this.radius = 8; // average particle
     } else {
-      this.radius = 9; // chonker
+      this.radius = 11; // chonker
     }
 
     this.baseOpacity = 0.6 + Math.random() * 0.4; // Random opacity (between 0.6 – 1.0) so it feels natural

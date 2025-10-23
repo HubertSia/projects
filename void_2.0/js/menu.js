@@ -226,6 +226,7 @@ const generateGalaxy = () => {
 // Generate initial galaxy
 generateGalaxy();
 
+
 /* ================ ANIMATION LOOP ================ */
 const clock = new THREE.Clock();
 let userRotation = 0;
