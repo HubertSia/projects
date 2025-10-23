@@ -1,62 +1,37 @@
-// ===== PARTICLE CLASS =====
+// ===== PARTICLE CLASS (OPTIMIZED) =====
+// Each particle is now drawn using a pre-rendered gradient sprite for performance.
 
 class Particle {
   constructor(x, y, jointId) {
-    this.x = x;          // Current x-position (updated each frame)
-    this.y = y;          // Current y-position (updated each frame)
-    this.size = Math.random() * 5 + 2;  // Random size between 2-7 pixels
-    this.speedX = Math.random() * 2 - 1; // Horizontal movement speed (-1 to 1 px/frame)
-    this.speedY = Math.random() * 2 - 1; // Vertical movement speed (-1 to 1 px/frame)
-    this.jointId = jointId; // ID linking particle to its body joint cluster
-    this.originalX = x;  // Initial x-position for distance calculations
-    this.originalY = y;  // Initial y-position for distance calculations
+    this.x = x;
+    this.y = y;
+    this.size = Math.random() * 5 + 2; // Random initial radius
+    this.speedX = Math.random() * 2 - 1;
+    this.speedY = Math.random() * 2 - 1;
+    this.jointId = jointId;
   }
 
-  /**
-   * Updates particle position based on its velocity
-   */
   update() {
     this.x += this.speedX;
     this.y += this.speedY;
-  }
-
-  /**
-   * Draws the particle with a radial gradient effect
-   * @param {CanvasRenderingContext2D} ctx - Canvas drawing context
-   */
-  draw(ctx) {
-    // Create a radial gradient that fades from blue to yellow
-    const gradient = ctx.createRadialGradient(
-      this.x, this.y, 0,          // Gradient center (particle position)
-      this.x, this.y, this.size   // Gradient extends to particle edge
-    );
-    gradient.addColorStop(0, 'rgba(0, 150, 255, 1)');    // Opaque blue at center
-    gradient.addColorStop(0.7, 'rgba(0, 150, 255, 0.6)'); // Semi-transparent blue
-    gradient.addColorStop(1, 'rgba(255, 255, 0, 0)');    // Fully transparent yellow edge
-
-    // Draw the particle
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-    ctx.fillStyle = gradient;
-    ctx.fill();
+    this.size -= 0.05; // Fade-out over time
   }
 }
 
 /* ===== GLOBAL STATE ===== */
-let particles = [];         // Array of all active particles
-let poseNetModel;           // Loaded PoseNet model for body tracking
-let video;                  // Webcam video element
-let canvas, ctx;            // Main canvas and its 2D context
-let jointClusters = {};     // Tracks active joint clusters with metadata
+let particles = [];
+let poseNetModel;
+let video;
+let canvas, ctx;
+let jointClusters = {};
 
-/* ===== NAVIGATION TIMING ===== */
-const AUTO_NAV_TIMEOUT = 60000;  // 60 seconds before auto-redirect
-const CAMERA_WIDTH = 1920;       // Camera width preference
-const CAMERA_HEIGHT = 1080;      // Camera height preference
+/* ===== CONSTANTS ===== */
+const AUTO_NAV_TIMEOUT = 60000; // 60 seconds before auto-redirect
+const CAMERA_WIDTH = 1920;
+const CAMERA_HEIGHT = 1080;
 
-/* ===== LOADING SYSTEM ===== */
-// Overlay displayed while camera/model initializes
-const loadingOverlay = document.createElement('div');
+/* ===== LOADING OVERLAY ===== */
+const loadingOverlay = document.createElement("div");
 loadingOverlay.style.cssText = `
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.7); display: flex; justify-content: center;
@@ -64,218 +39,218 @@ loadingOverlay.style.cssText = `
 `;
 document.body.appendChild(loadingOverlay);
 
-/**
- * Updates the loading screen text
- * @param {string} text - Message to display
- */
 function updateLoadingText(text) {
   loadingOverlay.textContent = text;
 }
 
-/* ===== MODEL LOADING ===== */
+/* ===== PRE-RENDERED PARTICLE SPRITE =====
+   Instead of creating gradients for every particle each frame,
+   we draw one small gradient onto an offscreen canvas and reuse it.
+*/
+const particleCanvas = document.createElement("canvas");
+particleCanvas.width = particleCanvas.height = 32;
+const pctx = particleCanvas.getContext("2d");
+
+const g = pctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+g.addColorStop(0, "rgba(0,150,255,1)");
+g.addColorStop(0.7, "rgba(0,150,255,0.6)");
+g.addColorStop(1, "rgba(255,255,0,0)");
+pctx.fillStyle = g;
+pctx.beginPath();
+pctx.arc(16, 16, 16, 0, Math.PI * 2);
+pctx.fill();
+
 /**
- * Loads PoseNet model with progress feedback.
- * Returns true if model initializes successfully.
+ * Draws a pre-rendered particle sprite with appropriate scaling.
+ * Highly performance-efficient vs. creating gradients per frame.
  */
+function drawParticleFast(p) {
+  const scale = p.size / 16;
+  ctx.drawImage(
+    particleCanvas,
+    p.x - p.size,
+    p.y - p.size,
+    particleCanvas.width * scale,
+    particleCanvas.height * scale
+  );
+}
+
+/* ===== MODEL LOADING ===== */
 async function loadPoseNet() {
   try {
     updateLoadingText("Loading PoseNet model...");
     poseNetModel = await posenet.load({
-      // Optimized for real-time use
-      architecture: 'MobileNetV1',
-
-      // Balance of speed vs accuracy
+      architecture: "MobileNetV1",
       outputStride: 16,
-
-      inputResolution: { width: 640, height: 480 },
-
-      // Smaller = faster but less precise (Don’t want to turn into a power point presentation)
-      multiplier: 0.75
+      inputResolution: { width: 480, height: 360 }, // ⚙️ Reduced for performance
+      multiplier: 0.75,
     });
 
-    // Model ready feedback
     updateLoadingText("PoseNet ready!");
-    setTimeout(() => (loadingOverlay.style.display = 'none'), 2000);
+    setTimeout(() => (loadingOverlay.style.display = "none"), 2000);
     return true;
   } catch (error) {
-    console.error('PoseNet loading failed:', error);
+    console.error("PoseNet loading failed:", error);
     updateLoadingText("Failed to load PoseNet. Using fallback...");
-    setTimeout(() => (loadingOverlay.style.display = 'none'), 3000);
+    setTimeout(() => (loadingOverlay.style.display = "none"), 3000);
     return false;
   }
 }
 
-/* ===== PARTICLE SYSTEM ===== */
-/**
- * Creates new particles associated with a specific body joint.
- * Multiple small moving points cluster around each PoseNet keypoint.
- */
-// Particles that connect to the joints
-function createParticles(x, y, jointId, count = 5) {
-  // Create or update metadata for an active joint cluster
+/* ===== PARTICLE SYSTEM =====
+   Now uses:
+   - capped particle count per joint
+   - reusable glow drawing
+   - optimized array update (no splice inside loop)
+*/
+function createParticles(x, y, jointId, count = 3) {
+  // Limit number of particles to avoid overpopulation
+  if (particles.length > 1500) return;
+
   if (!jointClusters[jointId]) {
     jointClusters[jointId] = {
       centerX: x,
       centerY: y,
       lastUpdated: Date.now(),
-      radius: 50 // Initial radius for glowing background
+      radius: 50, // Initial cluster glow radius
     };
   } else {
-    // Update cluster position each frame for smooth tracking
     jointClusters[jointId].centerX = x;
     jointClusters[jointId].centerY = y;
     jointClusters[jointId].lastUpdated = Date.now();
   }
 
-  // Generate new particles at the joint position
   for (let i = 0; i < count; i++) {
     particles.push(new Particle(x, y, jointId));
   }
 }
 
 /**
- * Updates particle physics and draws clusters
- * - Deletes expired clusters after 2s inactivity
- * - Expands cluster glow radius slowly outward
+ * Updates particle positions and draws glowing joint regions.
+ * Uses array filtering instead of splice for efficiency.
  */
 function updateParticles() {
   const now = Date.now();
 
-  // Remove stale joint clusters (>2 seconds old)
-  Object.keys(jointClusters).forEach(jointId => {
+  // ⚙️ Remove inactive clusters (> 2 seconds old)
+  for (const jointId in jointClusters) {
     if (now - jointClusters[jointId].lastUpdated > 2000) {
       delete jointClusters[jointId];
     }
-  });
+  }
 
-  // Render gradient glow for each active joint
-  Object.keys(jointClusters).forEach(jointId => {
-    const cluster = jointClusters[jointId];
+  // ⚙️ Semi-transparent fade instead of full black clear
+  ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = "lighter";
 
-    // Create orange-to-purple radial gradient
+  // ⚙️ Draw smooth glowing background circles
+  for (const id in jointClusters) {
+    const cluster = jointClusters[id];
     const gradient = ctx.createRadialGradient(
-      cluster.centerX, cluster.centerY, 0,
-      cluster.centerX, cluster.centerY, cluster.radius
+      cluster.centerX,
+      cluster.centerY,
+      0,
+      cluster.centerX,
+      cluster.centerY,
+      cluster.radius
     );
+    gradient.addColorStop(0, "rgba(255, 117, 67, 0.83)");
+    gradient.addColorStop(1, "rgba(198, 54, 255, 0.16)");
 
-    // Vibrant orange center
-    gradient.addColorStop(0, 'rgba(255, 117, 67, 0.83)');
-    // Faded purple edge
-    gradient.addColorStop(1, 'rgba(198, 54, 255, 0.16)');
-
-    // Draw glowing cluster background
     ctx.beginPath();
     ctx.arc(cluster.centerX, cluster.centerY, cluster.radius, 0, Math.PI * 2);
     ctx.fillStyle = gradient;
     ctx.fill();
 
-    // Slowly expand glow radius for ambient pulse effect
-    cluster.radius += 0.7;
-  });
+    cluster.radius = Math.min(cluster.radius + 0.3, 80);
+  }
 
-  // Update and render each particle
-  particles.forEach((particle, index) => {
-    particle.update();
-
-    // Only draw particles that still belong to active clusters
-    if (jointClusters[particle.jointId]) {
-      particle.draw(ctx);
+  // ⚙️ Efficient particle update & draw
+  const next = [];
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    const cluster = jointClusters[p.jointId];
+    p.update();
+    if (p.size > 0.3 && cluster) {
+      drawParticleFast(p);
+      next.push(p);
     }
+  }
+  particles = next; // Replace array instead of splicing
 
-    // Shrink and eventually remove particles
-    if (particle.size > 0.2) particle.size -= 0.05;
-    if (particle.size <= 0.2) particles.splice(index, 1);
-  });
+  ctx.globalCompositeOperation = "source-over";
 }
 
 /* ===== CAMERA SETUP ===== */
-/**
- * Initializes webcam video stream.
- * Returns a Video element or null if access is denied.
- */
 async function setupCamera() {
   try {
-    video = document.createElement('video');
+    video = document.createElement("video");
     video.width = CAMERA_WIDTH;
     video.height = CAMERA_HEIGHT;
 
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 1920 },
-        height: { ideal: 1080 }
-      }
+      video: { width: { ideal: 1280 }, height: { ideal: 720 } },
     });
 
     video.srcObject = stream;
-    await new Promise(resolve => (video.onloadedmetadata = resolve));
+    await new Promise((resolve) => (video.onloadedmetadata = resolve));
     await video.play();
     return video;
   } catch (error) {
-    console.error('Camera error:', error);
+    console.error("Camera error:", error);
     updateLoadingText("Camera access denied. Using fallback...");
-    setTimeout(() => (loadingOverlay.style.display = 'none'), 3000);
+    setTimeout(() => (loadingOverlay.style.display = "none"), 3000);
     return null;
   }
 }
 
-/* ===== POSE ESTIMATION ===== */
-/**
- * Draws PoseNet keypoints onto the canvas and spawns particles at each joint.
- * @param {Array} keypoints - List of detected PoseNet keypoints
- */
-function drawKeypoints(keypoints) {
-  keypoints.forEach((keypoint, index) => {
-    if (keypoint.score > 0.5) { // Only high-confidence joints
-      const jointId = `joint_${keypoint.part}_${index}`;
-
-      // Draw red dot for each keypoint
-      ctx.beginPath();
-      ctx.arc(keypoint.position.x, keypoint.position.y, 5, 0, 2 * Math.PI);
-      ctx.fillStyle = 'red';
-      ctx.fill();
-
-      // Spawn a few glowing particles at this joint
-      createParticles(keypoint.position.x, keypoint.position.y, jointId);
-    }
-  });
-}
-
-/**
- * Estimates the pose from each video frame, visualizes keypoints,
- * updates particles, and loops the animation.
- */
+/* ===== POSE ESTIMATION =====
+   - Only runs ~15 times per second to save CPU/GPU
+   - Draws simple keypoints and spawns limited particles
+*/
+let lastPoseTime = 0;
 async function estimatePose() {
-  if (!poseNetModel || !video) return;
+  const now = performance.now();
+  if (now - lastPoseTime < 66) {
+    // Limit PoseNet inference to 15fps
+    requestAnimationFrame(estimatePose);
+    return;
+  }
+  lastPoseTime = now;
 
+  if (!poseNetModel || !video) return;
   try {
     const pose = await poseNetModel.estimateSinglePose(video, {
-      flipHorizontal: true // Mirror mode for more intuitive interaction
+      flipHorizontal: true,
     });
 
-    // Clear canvas with a fresh black background
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'black';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Draw PoseNet keypoints
+    pose.keypoints.forEach((keypoint, index) => {
+      if (keypoint.score > 0.5) {
+        const jointId = `joint_${keypoint.part}_${index}`;
+        ctx.beginPath();
+        ctx.arc(keypoint.position.x, keypoint.position.y, 4, 0, 2 * Math.PI);
+        ctx.fillStyle = "red";
+        ctx.fill();
 
-    // Draw PoseNet keypoints + animate particles
-    drawKeypoints(pose.keypoints);
+        // Fewer particles per frame for smoother performance
+        createParticles(keypoint.position.x, keypoint.position.y, jointId, 2);
+      }
+    });
+
+    // Update particle system
     updateParticles();
-
-    // Keep the animation running each frame
-    requestAnimationFrame(estimatePose);
   } catch (error) {
-    console.error('Pose estimation error:', error);
+    console.error("Pose estimation error:", error);
   }
+  requestAnimationFrame(estimatePose);
 }
 
 /* ===== AUTO NAVIGATION ===== */
-/**
- * Automatically redirects to a random page after 60 seconds.
- * Replaces the original hand gesture navigation system.
- */
 function startAutoNavigation() {
   setTimeout(() => {
-    const pages = ['blackHole.html', 'spaceDust.html','index.html'];
+    const pages = ["blackHole.html", "spaceDust.html", "index.html"];
     const target = pages[Math.floor(Math.random() * pages.length)];
     console.log(`Auto redirecting to ${target}`);
     window.location.href = target;
@@ -283,27 +258,20 @@ function startAutoNavigation() {
 }
 
 /* ===== MAIN INITIALIZATION ===== */
-/**
- * Initializes the program logic:
- * 1. Creates and attaches canvas
- * 2. Initializes webcam
- * 3. Loads PoseNet model
- * 4. Starts body tracking and particle effects
- */
 async function init() {
-  // 1. Create full HD canvas
-  canvas = document.createElement('canvas');
+  canvas = document.createElement("canvas");
   canvas.width = CAMERA_WIDTH;
   canvas.height = CAMERA_HEIGHT;
   document.body.appendChild(canvas);
-  ctx = canvas.getContext('2d');
+  ctx = canvas.getContext("2d");
 
-  // 2. Initialize webcam
   video = await setupCamera();
+
   if (!video) {
-    // Fallback animation if webcam unavailable
+    // Fallback animation (no PoseNet)
     const fallbackAnimate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       createParticles(
         Math.random() * canvas.width,
         Math.random() * canvas.height,
@@ -317,24 +285,18 @@ async function init() {
     return;
   }
 
-  // 3. Load the PoseNet model
   const poseLoaded = await loadPoseNet();
-
-  // 4. Start the particle animation and sound
   if (poseLoaded) {
-    const mySound = new Audio('assets/spaceFinal.wav');
-    mySound.play();
+    const mySound = new Audio("assets/spaceFinal.wav");
     mySound.volume = 0.5;
-    console.log('playing sound');
+    mySound.play();
+    console.log("Playing background sound...");
     estimatePose();
     startAutoNavigation();
   } else {
-    // Fallback mode with random clusters
     const fallbackAnimate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'black';
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
       createParticles(
         Math.random() * canvas.width,
         Math.random() * canvas.height,
@@ -348,15 +310,13 @@ async function init() {
   }
 }
 
-/* ===== STARTAPPLICATION ===== */
-// Wait until TensorFlow.js is ready before initializing
-document.addEventListener('DOMContentLoaded', () => {
-  if (typeof tf !== 'undefined') {
+/* ===== START APPLICATION ===== */
+document.addEventListener("DOMContentLoaded", () => {
+  if (typeof tf !== "undefined") {
     tf.ready().then(() => init());
   } else {
-    // Dynamically load TensorFlow.js if not already available
-    const tfScript = document.createElement('script');
-    tfScript.src = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs';
+    const tfScript = document.createElement("script");
+    tfScript.src = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs";
     tfScript.onload = () => tf.ready().then(() => init());
     document.head.appendChild(tfScript);
   }
