@@ -332,15 +332,20 @@ statusElement.style.borderRadius = '5px';
 statusElement.style.zIndex = '10';
 document.body.appendChild(statusElement);
 
-/* ================ GESTURE CONTROL ================ */
-// Gesture tracking variables
-let gestureDetectionLocked = false;
-let lastGestureTime = 0;
-const gestureDelay = 2000; // 2 second cooldown between gestures
-let lastGesture = 'none';
-let gestureConfirmCounter = 0;
-const requiredConfirmations = 5; // Need 5 consistent detections
+/* ================ RANDOM NAVIGATION SYSTEM ================ */
+// Automatically move to a random cosmic scene after a delay
+function startRandomNavigation() {
+    const AUTO_NAV_DURATION = 60000; // 60 seconds (1 minute)
+    setTimeout(() => {
+        const pages = ['blackHole.html', 'planets.html', 'spaceDust.html'];
+        const randomPage = pages[Math.floor(Math.random() * pages.length)];
+        console.log(`Auto redirecting to ${randomPage}`);
+        window.location.href = randomPage;
+    }, AUTO_NAV_DURATION);
+}
 
+
+/* ================ GESTURE CONTROL ================ */
 // Pose tracking variables
 let prevPoseX = 0;
 let prevPoseY = 0;
@@ -474,7 +479,7 @@ async function trackUser() {
                 camera.position.y += (targetCameraY - camera.position.y) * settings.smoothingFactor;
                 camera.lookAt(scene.position);
 
-                statusElement.textContent = 'Body tracking active - Move left/right to rotate galaxy';
+                statusElement.textContent = 'Move around and find out';
             }
         }
 

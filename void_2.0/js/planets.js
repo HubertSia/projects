@@ -275,7 +275,7 @@ async function estimatePose() {
  */
 function startAutoNavigation() {
   setTimeout(() => {
-    const pages = ['blackHole.html', 'spaceDust.html'];
+    const pages = ['blackHole.html', 'spaceDust.html','index.html'];
     const target = pages[Math.floor(Math.random() * pages.length)];
     console.log(`Auto redirecting to ${target}`);
     window.location.href = target;

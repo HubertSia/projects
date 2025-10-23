@@ -102,7 +102,7 @@ function createParticles() {
   videoContext = videoCanvas.getContext("2d");
 
   // Define point cloud size
-  const particleCount = 10000; // total particles (larger = more intense visuals)
+  const particleCount = 1000; // total particles (larger = more intense visuals)
   const geometry = new THREE.BufferGeometry(); // stores geometry data for GPU
 
   // Allocate data arrays for vertex attributes
@@ -288,7 +288,7 @@ function animate(time) {
 function startAutoNavigation() {
   const AUTO_NAV_DURATION = 60000; // 60 seconds
   setTimeout(() => {
-    const pages = ["spaceDust.html", "planets.html"]; // potential destinations
+    const pages = ["spaceDust.html", "planets.html", "index.html"]; // potential destinations
     const nextPage = pages[Math.floor(Math.random() * pages.length)];
     console.log(`Auto redirecting to ${nextPage}`);
     window.location.href = nextPage;

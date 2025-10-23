@@ -17,8 +17,8 @@ const motionCtx = motionCanvas.getContext("2d");
 // Webcam stream & particle storage
 let videoStream; // Webcam video input
 let particles = []; // Array to hold all those shiny space bits
-const cols = 60,
-  rows = 60; // Grid resolution (balance between performance and pretty visuals)
+const cols = 45,
+  rows = 45; // Grid resolution (balance between performance and pretty visuals)
 
 // Keep track of previous webcam frame to detect what’s changed (motion)
 let prevFrame = null;
@@ -336,7 +336,7 @@ function animate() {
 function startAutoNavigation() {
   const AUTO_NAV_DURATION = 60000; // 1 minute until the cosmic gate opens again
   setTimeout(() => {
-    const pages = ["blackHole.html", "planets.html"];
+    const pages = ["blackHole.html", "planets.html", "index.html"];
     const randomPage = pages[Math.floor(Math.random() * pages.length)];
     console.log(`Auto redirecting to ${randomPage}`);
     window.location.href = randomPage;
