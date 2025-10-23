@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slection Hub</title>
+    <link rel="stylesheet" href="styles/style_main.css">
+
+
+</head>
+
+
+
+<body>
+    <h1 id="page-title" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgb(0, 0, 0); font-size: 
+        3rem; font-family: 'Courier New', monospace; font-weight: 300; letter-spacing: 0.1em; text-transform: uppercase; 
+        text-align: center; z-index: 10; text-shadow: 0 0 10px rgba(0, 17, 255, 0.7);">
+        THE VOID</h1>
+
+    <!-- Webcam feed (hidden) -->
+    <video id="webcam-feed" width="640" height="480" autoplay></video>
+
+
+    <!-- Load TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <!-- Load HandPose model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
+
+    <!-- Load Posenet model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script
+
+<!-- Link to external JavaScript -->
+<script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+    <script src="js/menu.js">
+    </script>
+
+
+
+</body>
+
+</html>
